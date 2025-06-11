@@ -11,7 +11,13 @@ import {
   Copy,
   Check,
   AlertCircle,
-  Lightbulb
+  Lightbulb,
+  Cloud,
+  Zap,
+  Globe,
+  Database,
+  Layers,
+  Rocket
 } from 'lucide-react';
 
 interface SeamPhase {
@@ -324,17 +330,174 @@ export const ProgressDashboard: React.FC = () => {
     }
   ];
 
-  const getCurrentSeam = () => {
-    return seams.find(seam => 
-      seam.phases.some(phase => phase.status === 'in-progress')
-    ) || seams.find(seam => 
-      seam.phases.some(phase => phase.status === 'pending')
-    );
-  };
+  // Next phase recommendations
+  const nextPhaseRecommendations = [
+    {
+      id: 'cloud-storage',
+      title: 'Cloud Storage Integration',
+      description: 'Sync projects across devices with cloud storage',
+      priority: 'High',
+      icon: Cloud,
+      estimatedTime: '2-3 weeks',
+      prompt: `Implement a cloud storage seam for Story Voice Studio following SDD methodology. Create contracts for:
 
-  const getCurrentPhase = (seam: SeamDefinition) => {
-    return seam.phases.find(phase => phase.status === 'in-progress') ||
-           seam.phases.find(phase => phase.status === 'pending');
+1. **ICloudStorageManager** interface with methods for:
+   - Upload/download projects
+   - Sync user preferences  
+   - Real-time collaboration sync
+   - Conflict resolution
+
+2. **Project synchronization** across devices
+3. **User authentication** integration
+4. **Offline/online** state management
+5. **Data encryption** for privacy
+
+Include proper error handling, retry logic, and progress indicators. Follow the same SDD workflow: Contracts → Stubs → Tests → Implementation.`
+    },
+    {
+      id: 'batch-processing',
+      title: 'Batch Processing System',
+      description: 'Process multiple stories simultaneously',
+      priority: 'High',
+      icon: Layers,
+      estimatedTime: '2-3 weeks',
+      prompt: `Create a batch processing seam for Story Voice Studio using SDD methodology. Design contracts for:
+
+1. **IBatchProcessor** interface supporting:
+   - Multiple file uploads
+   - Queue management
+   - Parallel processing
+   - Progress tracking per item
+   - Bulk export capabilities
+
+2. **Worker management** for concurrent processing
+3. **Resource optimization** to prevent browser lockup
+4. **Priority queuing** system
+5. **Batch result aggregation**
+
+Implement proper cancellation, error recovery, and memory management for large batch operations.`
+    },
+    {
+      id: 'advanced-export',
+      title: 'Advanced Export Formats',
+      description: 'Support EPUB, M4B, and audiobook platforms',
+      priority: 'Medium',
+      icon: Database,
+      estimatedTime: '1-2 weeks',
+      prompt: `Design an advanced export seam following SDD principles. Create contracts for:
+
+1. **IAdvancedExporter** interface with:
+   - Multiple format support (EPUB, M4B, MP3 chapters)
+   - Metadata embedding
+   - Chapter marker creation
+   - Platform-specific formatting
+   - Quality optimization per format
+
+2. **Export templates** for different platforms
+3. **Metadata management** (cover art, descriptions, ISBN)
+4. **Chapter segmentation** logic
+5. **Format validation** and compatibility checking
+
+Include support for audiobook platforms like Audible, Apple Books, and Spotify.`
+    },
+    {
+      id: 'performance-optimization',
+      title: 'Performance & Caching Layer',
+      description: 'Optimize for large documents and frequent use',
+      priority: 'Medium',
+      icon: Zap,
+      estimatedTime: '1-2 weeks',
+      prompt: `Implement a performance optimization seam using SDD methodology. Design contracts for:
+
+1. **ICacheManager** interface supporting:
+   - Intelligent audio segment caching
+   - Text analysis result caching
+   - Voice profile caching
+   - Memory usage optimization
+   - Cache invalidation strategies
+
+2. **Background processing** for large documents
+3. **Progressive loading** for better UX
+4. **Memory cleanup** automation
+5. **Performance metrics** tracking
+
+Focus on handling 500k+ character documents and frequent user interactions without performance degradation.`
+    },
+    {
+      id: 'api-endpoints',
+      title: 'REST API & Webhooks',
+      description: 'Enable third-party integrations',
+      priority: 'Low',
+      icon: Globe,
+      estimatedTime: '2-3 weeks',
+      prompt: `Create a REST API seam following SDD methodology. Design contracts for:
+
+1. **IAPIManager** interface with:
+   - RESTful endpoints for all core functionality
+   - Authentication & rate limiting
+   - Webhook system for callbacks
+   - API versioning
+   - Developer documentation
+
+2. **Integration endpoints** for:
+   - Writing software (Scrivener, Google Docs)
+   - Publishing platforms
+   - Content management systems
+   - Social media platforms
+
+3. **Developer tools**:
+   - API keys management
+   - Usage analytics
+   - SDK generation
+   - Testing sandbox
+
+Include OpenAPI/Swagger documentation and proper error codes.`
+    },
+    {
+      id: 'deployment',
+      title: 'Production Deployment',
+      description: 'Deploy to production with monitoring',
+      priority: 'High',
+      icon: Rocket,
+      estimatedTime: '1 week',
+      prompt: `Prepare Story Voice Studio for production deployment. Set up:
+
+1. **Production build optimization**:
+   - Bundle optimization
+   - Asset compression
+   - Performance monitoring
+   - Error tracking
+
+2. **Deployment pipeline**:
+   - CI/CD setup
+   - Environment management
+   - Health checks
+   - Rollback procedures
+
+3. **Monitoring & analytics**:
+   - User behavior tracking
+   - Performance metrics
+   - Error reporting
+   - Usage statistics
+
+4. **SEO & accessibility**:
+   - Meta tags optimization
+   - Accessibility compliance
+   - Search engine optimization
+   - Social media integration
+
+Deploy to a production environment and configure monitoring systems.`
+    }
+  ];
+
+  const handleCopyPrompt = async (prompt: string, itemTitle: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopiedPrompt(itemTitle);
+      setTimeout(() => setCopiedPrompt(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy prompt:', error);
+    }
   };
 
   const getCompletionStats = () => {
@@ -354,19 +517,7 @@ export const ProgressDashboard: React.FC = () => {
     };
   };
 
-  const handleCopyPrompt = async (prompt: string, seamName: string) => {
-    try {
-      await navigator.clipboard.writeText(prompt);
-      setCopiedPrompt(seamName);
-      setTimeout(() => setCopiedPrompt(null), 2000);
-    } catch (error) {
-      console.error('Failed to copy prompt:', error);
-    }
-  };
-
   const stats = getCompletionStats();
-  const currentSeam = getCurrentSeam();
-  const currentPhase = currentSeam ? getCurrentPhase(currentSeam) : null;
 
   return (
     <div className="space-y-8">
@@ -429,6 +580,68 @@ export const ProgressDashboard: React.FC = () => {
               The Story Voice Studio is now a fully functional, production-ready application with comprehensive seam integration!
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Next Phase Recommendations */}
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-gray-900">🚀 Next Phase Recommendations</h3>
+          <div className="text-sm text-gray-600">
+            Choose your next enhancement
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {nextPhaseRecommendations.map((item) => (
+            <div key={item.id} className="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-300 hover:shadow-lg transition-all duration-200">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    item.priority === 'High' ? 'bg-red-100 text-red-600' :
+                    item.priority === 'Medium' ? 'bg-yellow-100 text-yellow-600' :
+                    'bg-blue-100 text-blue-600'
+                  }`}>
+                    <item.icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{item.title}</h4>
+                    <p className="text-sm text-gray-600">{item.description}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end space-y-1">
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    item.priority === 'High' ? 'bg-red-100 text-red-700' :
+                    item.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}>
+                    {item.priority}
+                  </span>
+                  <span className="text-xs text-gray-500">{item.estimatedTime}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Ready to implement</span>
+                <button
+                  onClick={() => handleCopyPrompt(item.prompt, item.title)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                >
+                  {copiedPrompt === item.title ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copy Prompt</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -532,6 +745,37 @@ export const ProgressDashboard: React.FC = () => {
               <li>💾 <strong>Persistent state management</strong> with browser storage</li>
               <li>🌐 <strong>Cross-seam integration</strong> working flawlessly</li>
             </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Ready for Next Phase */}
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-bold mb-2">🎯 Ready for Phase 6</h3>
+            <p className="text-blue-100 mb-4">
+              Your Story Voice Studio is complete and ready for advanced enhancements. 
+              Choose a next step above and copy the prompt to continue development.
+            </p>
+            <div className="flex items-center space-x-4 text-sm">
+              <div className="flex items-center space-x-1">
+                <CheckCircle className="w-4 h-4" />
+                <span>5 Major Seams Complete</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <CheckCircle className="w-4 h-4" />
+                <span>100% SDD Compliance</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <CheckCircle className="w-4 h-4" />
+                <span>Production Ready</span>
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-4xl font-bold">100%</div>
+            <div className="text-blue-100">Core Features</div>
           </div>
         </div>
       </div>
