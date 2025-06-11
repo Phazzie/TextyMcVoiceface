@@ -102,6 +102,141 @@ export interface IAudioGenerationPipeline {
   optimizeAudio(audioData: Blob): Promise<ContractResult<Blob>>;
 }
 
+// Project Management Seam Contracts
+export interface StoryProject {
+  id: string;
+  name: string;
+  description?: string;
+  originalText: string;
+  audioOutput?: AudioOutput;
+  characters: Character[];
+  voiceAssignments: VoiceAssignment[];
+  qualityReport?: WritingQualityReport;
+  customVoices: Record<string, VoiceProfile>;
+  settings: ProjectSettings;
+  metadata: ProjectMetadata;
+  tags: string[];
+  version: string;
+}
+
+export interface ProjectSettings {
+  useElevenLabs: boolean;
+  elevenLabsApiKey?: string;
+  outputFormat: 'mp3' | 'wav';
+  enableQualityAnalysis: boolean;
+  playbackSpeed: number;
+  characterVolumes: Record<string, number>;
+  bookmarks: Bookmark[];
+  lastEditPosition: number;
+  autoSave: boolean;
+  autoSaveInterval: number; // minutes
+}
+
+export interface ProjectMetadata {
+  createdAt: number;
+  modifiedAt: number;
+  lastOpenedAt: number;
+  wordCount: number;
+  characterCount: number;
+  estimatedDuration: number; // seconds
+  completionStatus: 'draft' | 'processing' | 'complete' | 'error';
+  processingProgress: number; // 0-100
+  fileSize: number; // bytes
+  authorName?: string;
+  genre?: string;
+  language: string;
+  version: string;
+}
+
+export interface ProjectHistory {
+  id: string;
+  projectId: string;
+  timestamp: number;
+  action: 'created' | 'opened' | 'saved' | 'exported' | 'deleted' | 'renamed';
+  description: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: 'fiction' | 'non-fiction' | 'educational' | 'custom';
+  defaultSettings: Partial<ProjectSettings>;
+  sampleText?: string;
+  voiceTemplates: VoiceProfile[];
+  tags: string[];
+}
+
+export interface ProjectExport {
+  format: 'json' | 'zip' | 'backup';
+  includeAudio: boolean;
+  includeSettings: boolean;
+  includeHistory: boolean;
+  compression: 'none' | 'low' | 'high';
+  encryption?: {
+    enabled: boolean;
+    password?: string;
+  };
+}
+
+export interface ProjectImport {
+  source: 'file' | 'url' | 'text';
+  format: 'json' | 'zip' | 'txt' | 'docx' | 'pdf';
+  data: ArrayBuffer | string;
+  options: {
+    overwriteExisting: boolean;
+    mergeSettings: boolean;
+    validateData: boolean;
+  };
+}
+
+export interface IProjectManager {
+  // Core project operations
+  createProject(name: string, text: string, settings?: Partial<ProjectSettings>): Promise<ContractResult<StoryProject>>;
+  saveProject(project: StoryProject): Promise<ContractResult<boolean>>;
+  loadProject(projectId: string): Promise<ContractResult<StoryProject>>;
+  deleteProject(projectId: string): Promise<ContractResult<boolean>>;
+  duplicateProject(projectId: string, newName: string): Promise<ContractResult<StoryProject>>;
+  
+  // Project listing and search
+  listProjects(options?: { sortBy?: 'name' | 'created' | 'modified'; order?: 'asc' | 'desc'; limit?: number }): Promise<ContractResult<StoryProject[]>>;
+  searchProjects(query: string, filters?: { tags?: string[]; status?: string; dateRange?: { start: number; end: number } }): Promise<ContractResult<StoryProject[]>>;
+  getRecentProjects(limit?: number): Promise<ContractResult<StoryProject[]>>;
+  
+  // Project metadata management
+  updateProjectMetadata(projectId: string, metadata: Partial<ProjectMetadata>): Promise<ContractResult<boolean>>;
+  addProjectTags(projectId: string, tags: string[]): Promise<ContractResult<boolean>>;
+  removeProjectTags(projectId: string, tags: string[]): Promise<ContractResult<boolean>>;
+  renameProject(projectId: string, newName: string): Promise<ContractResult<boolean>>;
+  
+  // Import/Export functionality
+  exportProject(projectId: string, options: ProjectExport): Promise<ContractResult<Blob>>;
+  importProject(importData: ProjectImport): Promise<ContractResult<StoryProject>>;
+  exportAllProjects(options: ProjectExport): Promise<ContractResult<Blob>>;
+  
+  // Auto-save and backup
+  enableAutoSave(projectId: string, intervalMinutes: number): Promise<ContractResult<boolean>>;
+  disableAutoSave(projectId: string): Promise<ContractResult<boolean>>;
+  createBackup(projectId: string): Promise<ContractResult<string>>;
+  restoreBackup(backupId: string): Promise<ContractResult<StoryProject>>;
+  
+  // Project templates
+  getProjectTemplates(): Promise<ContractResult<ProjectTemplate[]>>;
+  createProjectFromTemplate(templateId: string, projectName: string): Promise<ContractResult<StoryProject>>;
+  saveAsTemplate(projectId: string, templateName: string, description: string): Promise<ContractResult<ProjectTemplate>>;
+  
+  // History and analytics
+  getProjectHistory(projectId: string): Promise<ContractResult<ProjectHistory[]>>;
+  recordProjectAction(projectId: string, action: ProjectHistory['action'], description: string): Promise<ContractResult<boolean>>;
+  getStorageStats(): Promise<ContractResult<{ totalProjects: number; totalSize: number; availableSpace: number }>>;
+  
+  // Cleanup and maintenance
+  cleanupOldBackups(olderThanDays: number): Promise<ContractResult<number>>;
+  validateProjectData(projectId: string): Promise<ContractResult<{ isValid: boolean; issues: string[] }>>;
+  repairProject(projectId: string): Promise<ContractResult<boolean>>;
+}
+
 // Voice Customization Seam Contracts
 export interface VoiceAdjustments {
   pitch?: number; // -1.0 to 1.0 relative adjustment

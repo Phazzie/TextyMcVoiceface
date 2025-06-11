@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Headphones, Sparkles, Book, Settings, FileCheck, BarChart3, Mic } from 'lucide-react';
+import { Headphones, Sparkles, Book, Settings, FileCheck, BarChart3, Mic, FolderOpen } from 'lucide-react';
 import { SeamManager } from './services/SeamManager';
 import { SystemOrchestrator } from './services/implementations/SystemOrchestrator';
 import { TextAnalysisEngine } from './services/implementations/TextAnalysisEngine';
@@ -11,6 +11,7 @@ import { WritingQualityAnalyzer } from './services/implementations/WritingQualit
 import { AudioControlsManager } from './services/implementations/AudioControlsManager';
 import { VoiceCustomizer as VoiceCustomizerService } from './services/implementations/VoiceCustomizer';
 import { TextEditor } from './services/implementations/TextEditor';
+import { ProjectManager as ProjectManagerService } from './services/implementations/ProjectManager';
 import { StoryInput } from './components/StoryInput';
 import { ProcessingStatus } from './components/ProcessingStatus';
 import { CharacterList } from './components/CharacterList';
@@ -19,7 +20,8 @@ import { ElevenLabsSetup } from './components/ElevenLabsSetup';
 import { WritingQualityReport } from './components/WritingQualityReport';
 import { ProgressDashboard } from './components/ProgressDashboard';
 import { VoiceCustomizer } from './components/VoiceCustomizer';
-import { ProcessingStatus as ProcessingStatusType, AudioOutput, Character, VoiceAssignment, WritingQualityReport as QualityReportType, VoiceProfile } from './types/contracts';
+import { ProjectManager } from './components/ProjectManager';
+import { ProcessingStatus as ProcessingStatusType, AudioOutput, Character, VoiceAssignment, WritingQualityReport as QualityReportType, VoiceProfile, StoryProject } from './types/contracts';
 
 function App() {
   const [currentStage, setCurrentStage] = useState<'input' | 'processing' | 'complete'>('input');
@@ -38,6 +40,8 @@ function App() {
   const [useElevenLabs, setUseElevenLabs] = useState(false);
   const [elevenLabsApiKey, setElevenLabsApiKey] = useState('');
   const [activeView, setActiveView] = useState<'audiobook' | 'analysis' | 'progress' | 'voices'>('audiobook');
+  const [showProjectManager, setShowProjectManager] = useState(false);
+  const [currentProject, setCurrentProject] = useState<StoryProject | null>(null);
 
   // Initialize services
   useEffect(() => {
@@ -50,9 +54,8 @@ function App() {
     seamManager.registerAudioControlsManager(new AudioControlsManager());
     seamManager.registerVoiceCustomizer(new VoiceCustomizerService());
     seamManager.registerWritingQualityAnalyzer(new WritingQualityAnalyzer());
-    
-    // Register Interactive Text Editor implementation
     seamManager.registerTextEditor(new TextEditor());
+    seamManager.registerProjectManager(new ProjectManagerService());
     
     // Set up ElevenLabs API key
     const apiKey = 'sk_4355ab7bfb4da5c4e57bd61adbebf9e719c25f92e32c379e';
@@ -246,6 +249,7 @@ function App() {
     setCharacters([]);
     setVoiceAssignments([]);
     setActiveView('audiobook');
+    setCurrentProject(null);
     setProcessingStatus({
       stage: 'analyzing',
       progress: 0,
@@ -260,6 +264,60 @@ function App() {
   const handleElevenLabsApiKeySet = (apiKey: string) => {
     setElevenLabsApiKey(apiKey);
     setShowElevenLabsSetup(false);
+  };
+
+  const handleProjectSelect = async (project: StoryProject) => {
+    setCurrentProject(project);
+    setOriginalText(project.originalText);
+    setCharacters(project.characters);
+    setVoiceAssignments(project.voiceAssignments);
+    setQualityReport(project.qualityReport || null);
+    setAudioOutput(project.audioOutput || null);
+    
+    if (project.audioOutput) {
+      setCurrentStage('complete');
+    } else {
+      setCurrentStage('input');
+    }
+  };
+
+  const handleNewProject = () => {
+    handleStartOver();
+    setShowProjectManager(false);
+  };
+
+  const handleSaveProject = async (project: StoryProject) => {
+    try {
+      const seamManager = SeamManager.getInstance();
+      const projectManager = seamManager.getProjectManager();
+      
+      // Update project with current state
+      const updatedProject: StoryProject = {
+        ...project,
+        originalText,
+        characters,
+        voiceAssignments,
+        qualityReport: qualityReport || undefined,
+        audioOutput: audioOutput || undefined,
+        metadata: {
+          ...project.metadata,
+          modifiedAt: Date.now(),
+          wordCount: originalText.trim().split(/\s+/).length,
+          characterCount: originalText.length,
+          completionStatus: audioOutput ? 'complete' : 'draft'
+        }
+      };
+
+      const result = await projectManager.saveProject(updatedProject);
+      if (result.success) {
+        setCurrentProject(updatedProject);
+        console.log('Project saved successfully');
+      } else {
+        console.error('Failed to save project:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving project:', error);
+    }
   };
 
   return (
@@ -286,6 +344,15 @@ function App() {
             </div>
             
             <div className="flex items-center space-x-3">
+              {/* Project Management Button */}
+              <button
+                onClick={() => setShowProjectManager(true)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200 flex items-center space-x-2"
+              >
+                <FolderOpen className="w-4 h-4" />
+                <span>Projects</span>
+              </button>
+
               {(currentStage === 'complete' || currentStage === 'input') && (
                 <div className="flex items-center space-x-2">
                   <button
@@ -392,11 +459,22 @@ function App() {
                   </span>
                 )}
               </p>
+              {currentProject && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-xl inline-block">
+                  <p className="text-blue-800 font-medium">
+                    📁 Current Project: {currentProject.name}
+                  </p>
+                  <p className="text-blue-600 text-sm">
+                    {currentProject.metadata.wordCount.toLocaleString()} words • Modified {new Date(currentProject.metadata.modifiedAt).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
             </div>
 
             <StoryInput 
               onTextSubmit={handleTextSubmit} 
-              isProcessing={currentStage === 'processing'} 
+              isProcessing={currentStage === 'processing'}
+              initialText={originalText}
             />
 
             {/* Features */}
@@ -495,6 +573,16 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {/* Project Manager Modal */}
+      <ProjectManager
+        currentProject={currentProject}
+        onProjectSelect={handleProjectSelect}
+        onNewProject={handleNewProject}
+        onSaveProject={currentProject ? handleSaveProject : undefined}
+        isVisible={showProjectManager}
+        onClose={() => setShowProjectManager(false)}
+      />
 
       {/* ElevenLabs Setup Modal */}
       <ElevenLabsSetup

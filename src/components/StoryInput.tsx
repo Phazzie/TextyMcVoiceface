@@ -1,15 +1,21 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, FileText, Mic, Play } from 'lucide-react';
 
 interface StoryInputProps {
   onTextSubmit: (text: string) => void;
   isProcessing: boolean;
+  initialText?: string;
 }
 
-export const StoryInput: React.FC<StoryInputProps> = ({ onTextSubmit, isProcessing }) => {
-  const [inputText, setInputText] = useState('');
+export const StoryInput: React.FC<StoryInputProps> = ({ onTextSubmit, isProcessing, initialText = '' }) => {
+  const [inputText, setInputText] = useState(initialText);
   const [inputMode, setInputMode] = useState<'text' | 'file'>('text');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update input text when initialText changes (e.g., when loading a project)
+  useEffect(() => {
+    setInputText(initialText);
+  }, [initialText]);
 
   const handleSubmit = () => {
     if (inputText.trim() && !isProcessing) {

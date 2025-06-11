@@ -9,6 +9,7 @@ import {
   IWritingQualityAnalyzer,
   IVoiceCustomizer,
   ITextEditor,
+  IProjectManager,
   TextSegment,
   DialogueMatch,
   AttributionMatch,
@@ -39,6 +40,13 @@ import {
   EditorSettings,
   BulkFixOperation,
   CollaborationCursor,
+  StoryProject,
+  ProjectSettings,
+  ProjectMetadata,
+  ProjectHistory,
+  ProjectTemplate,
+  ProjectExport,
+  ProjectImport,
   NotImplementedError
 } from '../types/contracts';
 
@@ -351,6 +359,129 @@ export class WritingQualityAnalyzerStub implements IWritingQualityAnalyzer {
 
   async generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>> {
     throw new NotImplementedError('WritingQualityAnalyzer', 'generateQualityReport');
+  }
+}
+
+// Project Manager Stub
+export class ProjectManagerStub implements IProjectManager {
+  // Core project operations
+  async createProject(name: string, text: string, settings?: Partial<ProjectSettings>): Promise<ContractResult<StoryProject>> {
+    throw new NotImplementedError('ProjectManager', 'createProject');
+  }
+
+  async saveProject(project: StoryProject): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'saveProject');
+  }
+
+  async loadProject(projectId: string): Promise<ContractResult<StoryProject>> {
+    throw new NotImplementedError('ProjectManager', 'loadProject');
+  }
+
+  async deleteProject(projectId: string): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'deleteProject');
+  }
+
+  async duplicateProject(projectId: string, newName: string): Promise<ContractResult<StoryProject>> {
+    throw new NotImplementedError('ProjectManager', 'duplicateProject');
+  }
+
+  // Project listing and search
+  async listProjects(options?: { sortBy?: 'name' | 'created' | 'modified'; order?: 'asc' | 'desc'; limit?: number }): Promise<ContractResult<StoryProject[]>> {
+    throw new NotImplementedError('ProjectManager', 'listProjects');
+  }
+
+  async searchProjects(query: string, filters?: { tags?: string[]; status?: string; dateRange?: { start: number; end: number } }): Promise<ContractResult<StoryProject[]>> {
+    throw new NotImplementedError('ProjectManager', 'searchProjects');
+  }
+
+  async getRecentProjects(limit?: number): Promise<ContractResult<StoryProject[]>> {
+    throw new NotImplementedError('ProjectManager', 'getRecentProjects');
+  }
+
+  // Project metadata management
+  async updateProjectMetadata(projectId: string, metadata: Partial<ProjectMetadata>): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'updateProjectMetadata');
+  }
+
+  async addProjectTags(projectId: string, tags: string[]): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'addProjectTags');
+  }
+
+  async removeProjectTags(projectId: string, tags: string[]): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'removeProjectTags');
+  }
+
+  async renameProject(projectId: string, newName: string): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'renameProject');
+  }
+
+  // Import/Export functionality
+  async exportProject(projectId: string, options: ProjectExport): Promise<ContractResult<Blob>> {
+    throw new NotImplementedError('ProjectManager', 'exportProject');
+  }
+
+  async importProject(importData: ProjectImport): Promise<ContractResult<StoryProject>> {
+    throw new NotImplementedError('ProjectManager', 'importProject');
+  }
+
+  async exportAllProjects(options: ProjectExport): Promise<ContractResult<Blob>> {
+    throw new NotImplementedError('ProjectManager', 'exportAllProjects');
+  }
+
+  // Auto-save and backup
+  async enableAutoSave(projectId: string, intervalMinutes: number): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'enableAutoSave');
+  }
+
+  async disableAutoSave(projectId: string): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'disableAutoSave');
+  }
+
+  async createBackup(projectId: string): Promise<ContractResult<string>> {
+    throw new NotImplementedError('ProjectManager', 'createBackup');
+  }
+
+  async restoreBackup(backupId: string): Promise<ContractResult<StoryProject>> {
+    throw new NotImplementedError('ProjectManager', 'restoreBackup');
+  }
+
+  // Project templates
+  async getProjectTemplates(): Promise<ContractResult<ProjectTemplate[]>> {
+    throw new NotImplementedError('ProjectManager', 'getProjectTemplates');
+  }
+
+  async createProjectFromTemplate(templateId: string, projectName: string): Promise<ContractResult<StoryProject>> {
+    throw new NotImplementedError('ProjectManager', 'createProjectFromTemplate');
+  }
+
+  async saveAsTemplate(projectId: string, templateName: string, description: string): Promise<ContractResult<ProjectTemplate>> {
+    throw new NotImplementedError('ProjectManager', 'saveAsTemplate');
+  }
+
+  // History and analytics
+  async getProjectHistory(projectId: string): Promise<ContractResult<ProjectHistory[]>> {
+    throw new NotImplementedError('ProjectManager', 'getProjectHistory');
+  }
+
+  async recordProjectAction(projectId: string, action: ProjectHistory['action'], description: string): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'recordProjectAction');
+  }
+
+  async getStorageStats(): Promise<ContractResult<{ totalProjects: number; totalSize: number; availableSpace: number }>> {
+    throw new NotImplementedError('ProjectManager', 'getStorageStats');
+  }
+
+  // Cleanup and maintenance
+  async cleanupOldBackups(olderThanDays: number): Promise<ContractResult<number>> {
+    throw new NotImplementedError('ProjectManager', 'cleanupOldBackups');
+  }
+
+  async validateProjectData(projectId: string): Promise<ContractResult<{ isValid: boolean; issues: string[] }>> {
+    throw new NotImplementedError('ProjectManager', 'validateProjectData');
+  }
+
+  async repairProject(projectId: string): Promise<ContractResult<boolean>> {
+    throw new NotImplementedError('ProjectManager', 'repairProject');
   }
 }
 
