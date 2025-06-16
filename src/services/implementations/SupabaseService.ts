@@ -76,14 +76,14 @@ export class SupabaseService {
       this.currentUser = session?.user || null;
 
       // If no user, sign in anonymously for demo mode
-      if (!this.currentUser) {
-        const { data, error } = await this.supabase.auth.signInAnonymously();
-        if (error) {
-          console.warn('Anonymous auth failed, continuing without auth:', error);
-        } else {
-          this.currentUser = data.user;
-        }
-      }
+      // if (!this.currentUser) {
+      //   const { data, error } = await this.supabase.auth.signInAnonymously();
+      //   if (error) {
+      //     console.warn('Anonymous auth failed, continuing without auth:', error);
+      //   } else {
+      //     this.currentUser = data.user;
+      //   }
+      // }
 
       // Listen for auth changes
       this.supabase.auth.onAuthStateChange((event, session) => {
@@ -205,11 +205,17 @@ export class SupabaseService {
     try {
       await this.waitForInitialization();
 
+      if (!this.currentUser) {
+        console.warn('Attempted to load project without a logged-in user.');
+        return { success: false, error: 'User not authenticated' };
+      }
+
       // Load project
       const { data: projectData, error: projectError } = await this.supabase
         .from('projects')
         .select('*')
         .eq('id', projectId)
+        .eq('user_id', this.currentUser.id) // Ensure project belongs to the current user
         .single();
 
       if (projectError || !projectData) {
@@ -298,9 +304,16 @@ export class SupabaseService {
     try {
       await this.waitForInitialization();
 
+      if (!this.currentUser) {
+        console.warn('Attempted to list projects without a logged-in user.');
+        // Return empty list or an error, matching current pattern of returning empty list for non-critical failures.
+        return { success: true, data: [] };
+      }
+
       const { data: projectsData, error } = await this.supabase
         .from('projects')
         .select('*')
+        .eq('user_id', this.currentUser.id) // Filter by user_id
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -336,15 +349,29 @@ export class SupabaseService {
     try {
       await this.waitForInitialization();
 
+      if (!this.currentUser) {
+        console.warn('Attempted to delete project without a logged-in user.');
+        return { success: false, error: 'User not authenticated' };
+      }
+
       const { error } = await this.supabase
         .from('projects')
         .delete()
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('user_id', this.currentUser.id); // Ensure project belongs to the current user
 
       if (error) {
+        // Check if the error is due to RLS (Row Level Security) or project not found for this user
+        // Supabase might return a generic error or a specific one depending on RLS setup
+        // For now, we just throw the error. If it's a 0-row deletion, it's not an error per se,
+        // but the project might not have existed or didn't belong to the user.
+        // The .delete() method doesn't error if no rows match, so an explicit check might be needed
+        // if we want to differentiate "not found" from "delete failed for other reasons".
+        // However, for simplicity, if RLS is properly configured, this will prevent unauthorized deletion.
         throw error;
       }
-
+      // Note: If no row matches (e.g. project ID doesn't exist or user_id doesn't match),
+      // Supabase delete doesn't error. It just deletes 0 rows. This is generally fine.
       return { success: true, data: true };
     } catch (error) {
       console.error('Failed to delete project from Supabase:', error);
