@@ -24,8 +24,12 @@ import { ProgressDashboard } from './components/ProgressDashboard';
 import { VoiceCustomizer } from './components/VoiceCustomizer';
 import { ProjectManager } from './components/ProjectManager';
 import { ProcessingStatus as ProcessingStatusType, AudioOutput, Character, VoiceAssignment, WritingQualityReport as QualityReportType, VoiceProfile, StoryProject } from './types/contracts';
+import { NotificationProvider } from './contexts/NotificationContext';
+import NotificationsContainer from './components/NotificationsContainer';
+import { useNotifier } from './hooks/useNotifier';
 
 function App() {
+  const { addNotification } = useNotifier();
   const [currentStage, setCurrentStage] = useState<'input' | 'processing' | 'complete'>('input');
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatusType>({
     stage: 'analyzing',
@@ -76,6 +80,7 @@ function App() {
         setInitializationStatus('✅ Supabase connected successfully!');
       } else {
         console.warn('Supabase connection failed:', connectionTest.error);
+         addNotification(`Supabase connection failed: ${connectionTest.error}. Some cloud features may be unavailable.`, 'error');
         setInitializationStatus('⚠️ Using local storage (Supabase unavailable)');
       }
       
@@ -105,6 +110,7 @@ function App() {
       
     } catch (error) {
       console.error('App initialization failed:', error);
+       addNotification(`App initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}. Some features may not work correctly.`, 'error');
       setInitializationStatus('❌ Initialization failed - some features may not work');
     }
   };
@@ -121,6 +127,7 @@ function App() {
         console.log('✅ ElevenLabs initialized successfully!');
       } else {
         console.error('Failed to initialize ElevenLabs:', initResult.error);
+         addNotification(`Failed to initialize ElevenLabs AI voices: ${initResult.error}. Falling back to standard voices.`, 'warning');
         // Fallback to browser speech
         seamManager.registerAudioGenerationPipeline(new AudioGenerationPipeline());
         setUseElevenLabs(false);
@@ -206,10 +213,12 @@ function App() {
         setCurrentStage('complete');
       } else {
         console.error('Processing failed:', result.error);
+         addNotification(`Audiobook processing failed: ${result.error || 'Unknown error'}. Please try again.`, 'error');
         setCurrentStage('input');
       }
     } catch (error) {
       console.error('Processing error:', error);
+       addNotification(`An unexpected error occurred during processing: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, 'error');
       setCurrentStage('input');
     }
   };
@@ -346,6 +355,7 @@ function App() {
           return;
         } else {
           console.warn('Supabase save failed, falling back to local storage:', result.error);
+           addNotification(`Cloud save failed: ${result.error || 'Unknown reason'}. Attempting local save.`, 'warning');
         }
       }
 
@@ -359,16 +369,19 @@ function App() {
         console.log('Project saved locally successfully');
       } else {
         console.error('Failed to save project:', result.error);
+         addNotification(`Local save failed: ${result.error || 'Unknown error'}. Please try again.`, 'error');
       }
     } catch (error) {
       console.error('Error saving project:', error);
+       addNotification(`An unexpected error occurred while saving the project: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, 'error');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Initialization Status */}
-      {initializationStatus && (
+    <NotificationProvider>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+        {/* Initialization Status */}
+        {initializationStatus && (
         <div className="fixed top-4 right-4 z-50 bg-white shadow-lg rounded-lg p-4 border-l-4 border-blue-500">
           <div className="flex items-center space-x-2">
             <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
@@ -671,7 +684,9 @@ function App() {
         onClose={() => setShowElevenLabsSetup(false)}
         onApiKeySet={handleElevenLabsApiKeySet}
       />
+      <NotificationsContainer />
     </div>
+    </NotificationProvider>
   );
 }
 
