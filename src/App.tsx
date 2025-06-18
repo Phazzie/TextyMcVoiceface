@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Headphones, Sparkles, Book, Settings, FileCheck, BarChart3, Mic, FolderOpen } from 'lucide-react';
+import { Headphones, Sparkles, Book, Settings, FileCheck, BarChart3, Mic, FolderOpen, Database, Shield } from 'lucide-react';
 import { SeamManager } from './services/SeamManager';
 import { SystemOrchestrator } from './services/implementations/SystemOrchestrator';
 import { TextAnalysisEngine } from './services/implementations/TextAnalysisEngine';
@@ -12,6 +12,8 @@ import { AudioControlsManager } from './services/implementations/AudioControlsMa
 import { VoiceCustomizer as VoiceCustomizerService } from './services/implementations/VoiceCustomizer';
 import { TextEditor } from './services/implementations/TextEditor';
 import { ProjectManager as ProjectManagerService } from './services/implementations/ProjectManager';
+import { supabaseService } from './services/implementations/SupabaseService';
+import { secureConfig } from './services/implementations/SecureConfigManager';
 import { StoryInput } from './components/StoryInput';
 import { ProcessingStatus } from './components/ProcessingStatus';
 import { CharacterList } from './components/CharacterList';
@@ -38,73 +40,98 @@ function App() {
   const [orchestrator, setOrchestrator] = useState<SystemOrchestrator | null>(null);
   const [showElevenLabsSetup, setShowElevenLabsSetup] = useState(false);
   const [useElevenLabs, setUseElevenLabs] = useState(false);
-  const [elevenLabsApiKey, setElevenLabsApiKey] = useState('');
   const [activeView, setActiveView] = useState<'audiobook' | 'analysis' | 'progress' | 'voices'>('audiobook');
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [currentProject, setCurrentProject] = useState<StoryProject | null>(null);
+  const [supabaseConnected, setSupabaseConnected] = useState(false);
+  const [initializationStatus, setInitializationStatus] = useState<string>('Initializing...');
 
   // Initialize services
   useEffect(() => {
-    const seamManager = SeamManager.getInstance();
-    
-    // Register core services
-    seamManager.registerTextAnalysisEngine(new TextAnalysisEngine());
-    seamManager.registerCharacterDetectionSystem(new CharacterDetectionSystem());
-    seamManager.registerVoiceAssignmentLogic(new VoiceAssignmentLogic());
-    seamManager.registerAudioControlsManager(new AudioControlsManager());
-    seamManager.registerVoiceCustomizer(new VoiceCustomizerService());
-    seamManager.registerWritingQualityAnalyzer(new WritingQualityAnalyzer());
-    seamManager.registerTextEditor(new TextEditor());
-    seamManager.registerProjectManager(new ProjectManagerService());
-    
-    // Set up ElevenLabs API key
-    const apiKey = 'sk_4355ab7bfb4da5c4e57bd61adbebf9e719c25f92e32c379e';
-    localStorage.setItem('elevenlabs_api_key', apiKey);
-    setElevenLabsApiKey(apiKey);
-    setUseElevenLabs(true);
-    
-    // Initialize ElevenLabs pipeline
-    const elevenLabsPipeline = new ElevenLabsAudioPipeline(apiKey);
-    elevenLabsPipeline.initialize().then(result => {
-      if (result.success) {
-        seamManager.registerAudioGenerationPipeline(elevenLabsPipeline);
-        console.log('✅ ElevenLabs initialized successfully!');
+    initializeApp();
+  }, []);
+
+  const initializeApp = async () => {
+    try {
+      setInitializationStatus('Setting up secure configuration...');
+      
+      const seamManager = SeamManager.getInstance();
+      
+      // Register core services
+      seamManager.registerTextAnalysisEngine(new TextAnalysisEngine());
+      seamManager.registerCharacterDetectionSystem(new CharacterDetectionSystem());
+      seamManager.registerVoiceAssignmentLogic(new VoiceAssignmentLogic());
+      seamManager.registerAudioControlsManager(new AudioControlsManager());
+      seamManager.registerVoiceCustomizer(new VoiceCustomizerService());
+      seamManager.registerWritingQualityAnalyzer(new WritingQualityAnalyzer());
+      seamManager.registerTextEditor(new TextEditor());
+      seamManager.registerProjectManager(new ProjectManagerService());
+      
+      setInitializationStatus('Testing Supabase connection...');
+      
+      // Test Supabase connection
+      const connectionTest = await supabaseService.testConnection();
+      if (connectionTest.success) {
+        setSupabaseConnected(true);
+        setInitializationStatus('✅ Supabase connected successfully!');
       } else {
-        console.error('Failed to initialize ElevenLabs:', result.error);
+        console.warn('Supabase connection failed:', connectionTest.error);
+        setInitializationStatus('⚠️ Using local storage (Supabase unavailable)');
+      }
+      
+      // Check for ElevenLabs API key
+      const elevenLabsKey = await secureConfig.getElevenLabsApiKey();
+      if (elevenLabsKey.success && elevenLabsKey.data) {
+        setInitializationStatus('Setting up ElevenLabs integration...');
+        await setupElevenLabs(elevenLabsKey.data);
+      } else {
         // Fallback to browser speech
         seamManager.registerAudioGenerationPipeline(new AudioGenerationPipeline());
         setUseElevenLabs(false);
       }
-    });
-    
-    const orchestratorInstance = new SystemOrchestrator();
-    seamManager.registerSystemOrchestrator(orchestratorInstance);
-    setOrchestrator(orchestratorInstance);
-    
-    console.log('✅ All seam components registered successfully');
-    console.log(`📊 SeamManager fully configured: ${seamManager.isFullyConfigured()}`);
-  }, []);
-
-  // Update audio pipeline when ElevenLabs key changes
-  useEffect(() => {
-    if (elevenLabsApiKey && elevenLabsApiKey !== 'sk_4355ab7bfb4da5c4e57bd61adbebf9e719c25f92e32c379e') {
-      const seamManager = SeamManager.getInstance();
-      const elevenLabsPipeline = new ElevenLabsAudioPipeline(elevenLabsApiKey);
       
-      // Initialize the pipeline
-      elevenLabsPipeline.initialize().then(result => {
-        if (result.success) {
-          seamManager.registerAudioGenerationPipeline(elevenLabsPipeline);
-          setUseElevenLabs(true);
-        } else {
-          console.error('Failed to initialize ElevenLabs:', result.error);
-          // Fallback to browser speech
-          seamManager.registerAudioGenerationPipeline(new AudioGenerationPipeline());
-          setUseElevenLabs(false);
-        }
-      });
+      const orchestratorInstance = new SystemOrchestrator();
+      seamManager.registerSystemOrchestrator(orchestratorInstance);
+      setOrchestrator(orchestratorInstance);
+      
+      setInitializationStatus('✅ Story Voice Studio ready!');
+      
+      setTimeout(() => {
+        setInitializationStatus('');
+      }, 2000);
+      
+      console.log('✅ All seam components registered successfully');
+      console.log(`📊 SeamManager fully configured: ${seamManager.isFullyConfigured()}`);
+      
+    } catch (error) {
+      console.error('App initialization failed:', error);
+      setInitializationStatus('❌ Initialization failed - some features may not work');
     }
-  }, [elevenLabsApiKey]);
+  };
+
+  const setupElevenLabs = async (apiKey: string) => {
+    try {
+      const seamManager = SeamManager.getInstance();
+      const elevenLabsPipeline = new ElevenLabsAudioPipeline(apiKey);
+      
+      const initResult = await elevenLabsPipeline.initialize();
+      if (initResult.success) {
+        seamManager.registerAudioGenerationPipeline(elevenLabsPipeline);
+        setUseElevenLabs(true);
+        console.log('✅ ElevenLabs initialized successfully!');
+      } else {
+        console.error('Failed to initialize ElevenLabs:', initResult.error);
+        // Fallback to browser speech
+        seamManager.registerAudioGenerationPipeline(new AudioGenerationPipeline());
+        setUseElevenLabs(false);
+      }
+    } catch (error) {
+      console.error('ElevenLabs setup failed:', error);
+      const seamManager = SeamManager.getInstance();
+      seamManager.registerAudioGenerationPipeline(new AudioGenerationPipeline());
+      setUseElevenLabs(false);
+    }
+  };
 
   // Poll processing status
   useEffect(() => {
@@ -261,8 +288,13 @@ function App() {
     setShowElevenLabsSetup(true);
   };
 
-  const handleElevenLabsApiKeySet = (apiKey: string) => {
-    setElevenLabsApiKey(apiKey);
+  const handleElevenLabsApiKeySet = async (apiKey: string) => {
+    // Save API key securely
+    await secureConfig.setElevenLabsApiKey(apiKey);
+    
+    // Setup ElevenLabs with new key
+    await setupElevenLabs(apiKey);
+    
     setShowElevenLabsSetup(false);
   };
 
@@ -288,9 +320,6 @@ function App() {
 
   const handleSaveProject = async (project: StoryProject) => {
     try {
-      const seamManager = SeamManager.getInstance();
-      const projectManager = seamManager.getProjectManager();
-      
       // Update project with current state
       const updatedProject: StoryProject = {
         ...project,
@@ -308,10 +337,26 @@ function App() {
         }
       };
 
+      // Try Supabase first, fallback to ProjectManager
+      if (supabaseConnected) {
+        const result = await supabaseService.saveProject(updatedProject);
+        if (result.success) {
+          setCurrentProject(updatedProject);
+          console.log('Project saved to Supabase successfully');
+          return;
+        } else {
+          console.warn('Supabase save failed, falling back to local storage:', result.error);
+        }
+      }
+
+      // Fallback to local ProjectManager
+      const seamManager = SeamManager.getInstance();
+      const projectManager = seamManager.getProjectManager();
       const result = await projectManager.saveProject(updatedProject);
+      
       if (result.success) {
         setCurrentProject(updatedProject);
-        console.log('Project saved successfully');
+        console.log('Project saved locally successfully');
       } else {
         console.error('Failed to save project:', result.error);
       }
@@ -322,6 +367,16 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      {/* Initialization Status */}
+      {initializationStatus && (
+        <div className="fixed top-4 right-4 z-50 bg-white shadow-lg rounded-lg p-4 border-l-4 border-blue-500">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+            <span className="text-sm font-medium text-gray-700">{initializationStatus}</span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -337,6 +392,12 @@ function App() {
                   {useElevenLabs && (
                     <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
                       ElevenLabs AI ✨
+                    </span>
+                  )}
+                  {supabaseConnected && (
+                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                      <Database className="w-3 h-3 inline mr-1" />
+                      Cloud Connected
                     </span>
                   )}
                 </p>
@@ -406,21 +467,30 @@ function App() {
                 </div>
               )}
 
-              {useElevenLabs && (
-                <div className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full font-medium">
-                  ✅ ElevenLabs Connected
-                </div>
-              )}
-              
-              {!useElevenLabs && (
-                <button
-                  onClick={handleSetupElevenLabs}
-                  className="px-4 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-all duration-200 flex items-center space-x-2"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>Setup ElevenLabs</span>
-                </button>
-              )}
+              {/* Connection Status */}
+              <div className="flex items-center space-x-2">
+                {supabaseConnected && (
+                  <div className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full font-medium flex items-center space-x-1">
+                    <Database className="w-3 h-3" />
+                    <span>Cloud DB</span>
+                  </div>
+                )}
+                
+                {useElevenLabs ? (
+                  <div className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full font-medium flex items-center space-x-1">
+                    <Shield className="w-3 h-3" />
+                    <span>ElevenLabs</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleSetupElevenLabs}
+                    className="px-4 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Setup AI Voices</span>
+                  </button>
+                )}
+              </div>
               
               {currentStage === 'complete' && (
                 <button
@@ -456,6 +526,11 @@ function App() {
                 {useElevenLabs && (
                   <span className="block mt-2 text-purple-600 font-semibold">
                     ✨ Powered by ElevenLabs AI for ultra-realistic voices
+                  </span>
+                )}
+                {supabaseConnected && (
+                  <span className="block mt-2 text-green-600 font-semibold">
+                    ☁️ Your projects are automatically saved to the cloud
                   </span>
                 )}
               </p>
@@ -569,7 +644,13 @@ function App() {
       <footer className="bg-white/50 backdrop-blur-sm border-t border-gray-200 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-gray-600">
-            <p>© 2024 Story Voice Studio. AI-powered audiobook generation and writing analysis.</p>
+            <p>© 2024 Story Voice Studio. AI-powered audiobook generation with secure cloud storage.</p>
+            {supabaseConnected && (
+              <p className="text-sm mt-2 text-green-600">
+                <Database className="w-4 h-4 inline mr-1" />
+                Securely connected to Supabase cloud database
+              </p>
+            )}
           </div>
         </div>
       </footer>
