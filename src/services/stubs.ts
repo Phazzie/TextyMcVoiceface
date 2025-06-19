@@ -110,6 +110,21 @@ export class AudioGenerationPipelineStub implements IAudioGenerationPipeline {
   }
 }
 
+// OpenAI Audio Pipeline Stub - NEW for Narrator Mode
+export class OpenAIAudioPipelineStub implements IAudioGenerationPipeline {
+  async generateSegmentAudio(segment: TextSegment, voice: VoiceProfile): Promise<ContractResult<AudioSegment>> {
+    throw new NotImplementedError('OpenAIAudioPipeline', 'generateSegmentAudio');
+  }
+
+  async combineAudioSegments(segments: AudioSegment[]): Promise<ContractResult<AudioOutput>> {
+    throw new NotImplementedError('OpenAIAudioPipeline', 'combineAudioSegments');
+  }
+
+  async optimizeAudio(audioData: Blob): Promise<ContractResult<Blob>> {
+    throw new NotImplementedError('OpenAIAudioPipeline', 'optimizeAudio');
+  }
+}
+
 // Voice Customizer Stub
 export class VoiceCustomizerStub implements IVoiceCustomizer {
   async previewVoiceAdjustment(character: string, adjustments: VoiceAdjustments): Promise<ContractResult<VoicePreview>> {

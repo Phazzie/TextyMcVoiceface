@@ -6,6 +6,20 @@ export interface ContractResult<T> {
   metadata?: Record<string, any>;
 }
 
+// Narrator Mode Configuration Contract
+export interface INarratorModeConfig {
+  enabled: boolean;
+  voice: VoiceProfile;
+  speed: number; // 0.5 to 2.0 multiplier
+  emphasis: number; // 0.0 to 1.0
+  includeCharacterNames: boolean; // Whether to speak character names before dialogue
+  characterNameStyle: 'full' | 'short' | 'none'; // How to present character names
+  pauseBetweenSpeakers: number; // Milliseconds pause between different speakers
+}
+
+// Processing Mode Type
+export type IProcessingMode = 'multi-voice' | 'narrator';
+
 // Text Analysis Seam Contracts
 export interface TextSegment {
   id: string;
@@ -130,6 +144,7 @@ export interface ProjectSettings {
   lastEditPosition: number;
   autoSave: boolean;
   autoSaveInterval: number; // minutes
+  narratorMode?: INarratorModeConfig; // New narrator mode settings
 }
 
 export interface ProjectMetadata {
@@ -558,17 +573,19 @@ export interface ProcessingStatus {
   currentItem?: string;
 }
 
-export interface ISystemOrchestrator {
-  processStory(text: string, options?: ProcessingOptions): Promise<ContractResult<AudioOutput>>;
-  getProcessingStatus(): Promise<ContractResult<ProcessingStatus>>;
-  cancelProcessing(): Promise<ContractResult<boolean>>;
-}
-
 export interface ProcessingOptions {
   enableManualCorrection?: boolean;
   voiceCustomization?: Partial<VoiceProfile>;
   outputFormat?: 'mp3' | 'wav';
   includeQualityAnalysis?: boolean;
+  mode?: IProcessingMode; // New narrator mode option
+  narratorConfig?: INarratorModeConfig; // Narrator mode configuration
+}
+
+export interface ISystemOrchestrator {
+  processStory(text: string, options?: ProcessingOptions): Promise<ContractResult<AudioOutput>>;
+  getProcessingStatus(): Promise<ContractResult<ProcessingStatus>>;
+  cancelProcessing(): Promise<ContractResult<boolean>>;
 }
 
 // Error types
