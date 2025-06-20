@@ -10,6 +10,7 @@ import {
   IVoiceCustomizer,
   ITextEditor,
   IProjectManager,
+  IAIEnhancementService,
   TextSegment,
   DialogueMatch,
   AttributionMatch,
@@ -497,6 +498,17 @@ export class ProjectManagerStub implements IProjectManager {
 
   async repairProject(projectId: string): Promise<ContractResult<boolean>> {
     throw new NotImplementedError('ProjectManager', 'repairProject');
+  }
+}
+
+// AI Enhancement Service Stub
+export class AIEnhancementServiceStub implements IAIEnhancementService {
+  async invertTrope(context: string, tropeName: string): Promise<ContractResult<string>> {
+    throw new NotImplementedError('AIEnhancementServiceStub', 'invertTrope');
+  }
+
+  async rewriteFromNewPerspective(text: string, newCharacter: Character): Promise<ContractResult<string>> {
+    throw new NotImplementedError('AIEnhancementServiceStub', 'rewriteFromNewPerspective');
   }
 }
 
