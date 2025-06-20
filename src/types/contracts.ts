@@ -381,11 +381,17 @@ export interface WritingQualityReport {
   };
 }
 
+export interface ColorPaletteResult {
+  palette: { color: string; hex: string; frequency: number }[];
+  message: string;
+}
+
 export interface IWritingQualityAnalyzer {
   analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>>;
   detectTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
   detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
   generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>>;
+  generateColorPalette(text: string): Promise<ContractResult<ColorPaletteResult>>;
 }
 
 // Interactive Text Editor Seam Contracts

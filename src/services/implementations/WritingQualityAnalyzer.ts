@@ -4,7 +4,8 @@ import {
   ShowTellIssue, 
   TropeMatch, 
   PurpleProseIssue, 
-  WritingQualityReport 
+  WritingQualityReport,
+  ColorPaletteResult
 } from '../../types/contracts';
 
 export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
@@ -75,6 +76,25 @@ export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
         "Weather is completely unrelated to mood or events"
       ]
     }
+  ];
+
+  private static readonly PREDEFINED_COLORS: { name: string; hex: string }[] = [
+    { name: "red", hex: "#FF0000" },
+    { name: "blue", hex: "#0000FF" },
+    { name: "green", hex: "#008000" },
+    { name: "yellow", hex: "#FFFF00" },
+    { name: "black", hex: "#000000" },
+    { name: "white", hex: "#FFFFFF" },
+    { name: "purple", hex: "#800080" },
+    { name: "orange", hex: "#FFA500" },
+    { name: "pink", hex: "#FFC0CB" },
+    { name: "brown", hex: "#A52A2A" },
+    { name: "gray", hex: "#808080" },
+    { name: "silver", hex: "#C0C0C0" },
+    { name: "gold", hex: "#FFD700" },
+    { name: "forest green", hex: "#228B22" },
+    { name: "sky blue", hex: "#87CEEB" },
+    { name: "sun-yellow", hex: "#FFDB58" }
   ];
 
   private static readonly PURPLE_PROSE_PATTERNS = [
@@ -406,5 +426,77 @@ export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
     const ratio = weightedIssues / (wordCount / 100); // Weighted issues per 100 words
     
     return Math.max(0, Math.min(100, 100 - (ratio * 15)));
+  }
+
+  async generateColorPalette(text: string): Promise<ContractResult<ColorPaletteResult>> {
+    try {
+      if (!text || text.trim() === "") {
+        return {
+          success: true,
+          data: {
+            palette: [],
+            message: "Input text is empty. No colors to analyze."
+          }
+        };
+      }
+
+      const colorFrequencies: Map<string, { hex: string; frequency: number }> = new Map();
+
+      WritingQualityAnalyzer.PREDEFINED_COLORS.forEach(colorInfo => {
+        const regex = new RegExp(`\\b${colorInfo.name}\\b`, 'gi');
+        const matches = text.match(regex);
+        if (matches) {
+          const existing = colorFrequencies.get(colorInfo.name);
+          colorFrequencies.set(colorInfo.name, {
+            hex: colorInfo.hex,
+            frequency: (existing ? existing.frequency : 0) + matches.length
+          });
+        }
+      });
+
+      if (colorFrequencies.size === 0) {
+        return {
+          success: true,
+          data: {
+            palette: [],
+            message: "No predefined colors found in the text."
+          }
+        };
+      }
+
+      const sortedColors = Array.from(colorFrequencies.entries())
+        .map(([name, data]) => ({
+          color: name,
+          hex: data.hex,
+          frequency: data.frequency
+        }))
+        .sort((a, b) => b.frequency - a.frequency);
+
+      const topN = Math.min(Math.max(5, sortedColors.length < 5 ? sortedColors.length : 10), sortedColors.length);
+      const palette = sortedColors.slice(0, topN);
+
+      let message = `Successfully generated color palette. Found ${sortedColors.length} unique color(s).`;
+      if (palette.length < sortedColors.length) {
+        message += ` Displaying top ${palette.length}.`;
+      }
+
+
+      return {
+        success: true,
+        data: {
+          palette: palette,
+          message: message
+        },
+        metadata: {
+          totalColorsFound: sortedColors.length,
+          displayedColors: palette.length
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Color palette generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
   }
 }
