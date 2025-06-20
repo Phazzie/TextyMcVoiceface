@@ -341,6 +341,15 @@ export interface IAudioControlsManager {
   resetToDefaults(): Promise<ContractResult<PlaybackSettings>>;
 }
 
+export interface BechdelTestResult {
+  passes: boolean;
+  message: string;
+  evidence: {
+    femaleCharacters: string[];
+    conversationSnippet?: string;
+  };
+}
+
 // Writing Quality Analysis Contracts
 export interface ShowTellIssue {
   text: string;
@@ -386,6 +395,7 @@ export interface IWritingQualityAnalyzer {
   detectTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
   detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
   generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>>;
+  analyzeBechdelTest(text: string): Promise<ContractResult<BechdelTestResult>>;
 }
 
 // Interactive Text Editor Seam Contracts
