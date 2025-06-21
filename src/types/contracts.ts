@@ -396,6 +396,11 @@ export interface IWritingQualityAnalyzer {
   generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>>;
 }
 
+export interface IAIEnhancementService {
+  invertTrope(context: string, tropeName: string): Promise<ContractResult<string>>;
+  rewriteFromNewPerspective(text: string, newCharacter: Character): Promise<ContractResult<string>>;
+}
+
 // Interactive Text Editor Seam Contracts
 export interface TextChange {
   id: string;

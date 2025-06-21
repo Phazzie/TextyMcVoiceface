@@ -8,7 +8,8 @@ import {
   IAudioControlsManager,
   IVoiceCustomizer,
   ITextEditor,
-  IProjectManager
+  IProjectManager,
+  IAIEnhancementService
 } from '../types/contracts';
 
 // Seam Manager for coordinating component communication
@@ -25,6 +26,7 @@ export class SeamManager {
   private voiceCustomizer?: IVoiceCustomizer;
   private textEditor?: ITextEditor;
   private projectManager?: IProjectManager;
+  private aiEnhancementService?: IAIEnhancementService;
 
   private constructor() {}
 
@@ -74,6 +76,10 @@ export class SeamManager {
 
   registerProjectManager(manager: IProjectManager): void {
     this.projectManager = manager;
+  }
+
+  registerAIEnhancementService(service: IAIEnhancementService): void {
+    this.aiEnhancementService = service;
   }
 
   // Component access
@@ -147,6 +153,13 @@ export class SeamManager {
     return this.projectManager;
   }
 
+  getAIEnhancementService(): IAIEnhancementService {
+    if (!this.aiEnhancementService) {
+      throw new Error('AIEnhancementService not registered');
+    }
+    return this.aiEnhancementService;
+  }
+
   // Health check
   isFullyConfigured(): boolean {
     return !!(
@@ -159,7 +172,8 @@ export class SeamManager {
       this.audioControlsManager &&
       this.voiceCustomizer &&
       this.textEditor &&
-      this.projectManager
+      this.projectManager &&
+      this.aiEnhancementService
     );
   }
 }
