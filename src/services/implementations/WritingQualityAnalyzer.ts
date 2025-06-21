@@ -2,12 +2,22 @@ import {
   IWritingQualityAnalyzer, 
   ContractResult, 
   ShowTellIssue, 
-  TropeMatch, 
-  PurpleProseIssue, 
-  WritingQualityReport 
+  TropeMatch,
+  PurpleProseIssue,
+  WritingQualityReport,
+  CharacterFingerprint,
+  VoiceConsistencyResult,
+  ITextAnalysisEngine,
+  TextSegment,
 } from '../../types/contracts';
 
 export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
+  private readonly textAnalysisEngine: ITextAnalysisEngine;
+
+  constructor(textAnalysisEngine: ITextAnalysisEngine) {
+    this.textAnalysisEngine = textAnalysisEngine;
+  }
+
   private static readonly TELLING_PATTERNS = [
     // Emotion telling
     { pattern: /\b(was|felt|seemed|appeared)\s+(angry|sad|happy|excited|nervous|afraid|surprised|confused|worried|frustrated|disappointed|relieved)\b/gi, type: 'emotion' },
@@ -275,6 +285,128 @@ export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
       return {
         success: false,
         error: `Quality report generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  async analyzeVoiceConsistency(text: string): Promise<ContractResult<VoiceConsistencyResult>> {
+    try {
+      const segmentsResult = await this.textAnalysisEngine.parseText(text);
+
+      if (!segmentsResult.success || !segmentsResult.data) {
+        return {
+          success: false,
+          error: 'Failed to parse text for voice consistency analysis: ' + (segmentsResult.error || 'No data returned'),
+        };
+      }
+
+      const dialogueSegments = segmentsResult.data.filter(
+        (segment) => segment.type === 'dialogue' && segment.speaker !== 'Narrator' && segment.speaker !== 'Unknown'
+      );
+
+      if (dialogueSegments.length === 0) {
+        return {
+          success: true,
+          data: {
+            fingerprints: [],
+            warnings: ['No dialogue segments found for voice consistency analysis.'],
+          },
+          metadata: { charactersAnalyzed: 0 },
+        };
+      }
+
+      const segmentsByCharacter = new Map<string, TextSegment[]>();
+      for (const segment of dialogueSegments) {
+        if (!segmentsByCharacter.has(segment.speaker)) {
+          segmentsByCharacter.set(segment.speaker, []);
+        }
+        segmentsByCharacter.get(segment.speaker)!.push(segment);
+      }
+
+      const fingerprints: CharacterFingerprint[] = [];
+      const commonWords = new Set([
+        "the", "a", "is", "of", "and", "to", "in", "it", "that", "this", "i", "you", "he", "she", "they", "we", "me", "him", "her", "them", "us", "my", "your", "his", "its", "our", "their", "was", "were", "be", "been", "have", "has", "had", "do", "does", "did", "will", "would", "should", "can", "could", "may", "might", "must", "am", "are", "not", "so", "but", "or", "if", "because", "as", "at", "by", "for", "from", "with", "about", "on", "up", "out", "all", "some", "very", "just", "too", "also", "now", "then", "here", "there", "when", "where", "why", "how", "what", "which", "who", "whom", "whose"
+      ]);
+
+      for (const [characterName, charSegments] of segmentsByCharacter) {
+        const combinedDialogue = charSegments.map((s) => s.content).join(' ');
+        const sentences = combinedDialogue.split(/[.!?]+/g).filter(s => s.trim().length > 0);
+        let totalWordsInSentences = 0;
+        let wordCountForAvg = 0;
+        sentences.forEach(sentence => {
+            const words = sentence.trim().split(/\s+/).filter(w => w.length > 0);
+            totalWordsInSentences += words.length;
+            wordCountForAvg += words.length > 0 ? 1 : 0; // count sentence only if it has words
+        });
+
+        const averageSentenceLength = sentences.length > 0 ? totalWordsInSentences / sentences.length : 0;
+
+
+        const words = combinedDialogue.toLowerCase().replace(/[^\w\s']/g, "").split(/\s+/).filter(w => w.length > 0);
+        const filteredWords = words.filter(word => !commonWords.has(word));
+        const totalFilteredWords = filteredWords.length;
+        const uniqueWords = new Set(filteredWords);
+        const vocabularyRichness = totalFilteredWords > 0 ? uniqueWords.size / totalFilteredWords : 0;
+
+        const wordFrequencies = new Map<string, number>();
+        filteredWords.forEach(word => {
+          wordFrequencies.set(word, (wordFrequencies.get(word) || 0) + 1);
+        });
+
+        const sortedWords = Array.from(wordFrequencies.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5);
+
+        const topWords = sortedWords.map(([word, frequency]) => ({ word, frequency }));
+
+        fingerprints.push({
+          characterName,
+          metrics: {
+            averageSentenceLength,
+            vocabularyRichness,
+            topWords,
+          },
+        });
+      }
+
+      const warnings: string[] = [];
+      for (let i = 0; i < fingerprints.length; i++) {
+        for (let j = i + 1; j < fingerprints.length; j++) {
+          const char1 = fingerprints[i];
+          const char2 = fingerprints[j];
+
+          const topWords1 = new Set(char1.metrics.topWords.map(tw => tw.word));
+          const topWords2 = new Set(char2.metrics.topWords.map(tw => tw.word));
+
+          if (topWords1.size === 0 || topWords2.size === 0) continue;
+
+          const intersection = new Set([...topWords1].filter(word => topWords2.has(word)));
+          const union = new Set([...topWords1, ...topWords2]);
+
+          const jaccardIndex = union.size > 0 ? (intersection.size / union.size) * 100 : 0;
+
+          if (jaccardIndex > 60) { // Threshold for warning
+            warnings.push(
+              `Warning: ${char1.characterName} and ${char2.characterName} have a ${jaccardIndex.toFixed(0)}% vocabulary overlap in top words.`
+            );
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          fingerprints,
+          warnings,
+        },
+        metadata: {
+          charactersAnalyzed: fingerprints.length,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Voice consistency analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

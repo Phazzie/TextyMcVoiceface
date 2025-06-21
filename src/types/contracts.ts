@@ -381,11 +381,27 @@ export interface WritingQualityReport {
   };
 }
 
+// Voice Consistency Analysis Contracts
+export interface CharacterFingerprint {
+  characterName: string;
+  metrics: {
+    averageSentenceLength: number;
+    vocabularyRichness: number;
+    topWords: { word: string; frequency: number }[]; // top 5 non-common words
+  };
+}
+
+export interface VoiceConsistencyResult {
+  fingerprints: CharacterFingerprint[];
+  warnings: string[];
+}
+
 export interface IWritingQualityAnalyzer {
   analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>>;
   detectTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
   detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
   generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>>;
+  analyzeVoiceConsistency(text: string): Promise<ContractResult<VoiceConsistencyResult>>;
 }
 
 // Interactive Text Editor Seam Contracts
