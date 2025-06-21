@@ -400,8 +400,22 @@ export interface WritingQualityReport {
   };
 }
 
+export interface DialogueTurn {
+  characterName: string;
+  powerScore: number; // A score from -5 (submissive) to +5 (dominant).
+  metrics: {
+    isQuestion: boolean;
+    interruptions: number; // Count of interruptions initiated by this character in this turn
+    wordCount: number;
+    hedgeToIntensifierRatio: number; // Ratio of intensifiers to (hedges + intensifiers). Higher means more power.
+    topicChanged: boolean; // True if this turn successfully changed the topic
+  };
+  detectedTactic?: 'weaponizedPoliteness' | 'exchangeTermination'; // Special tactics detected
+}
+
 export interface IWritingQualityAnalyzer {
   analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>>;
+  analyzeDialoguePowerBalance(sceneText: string): Promise<ContractResult<DialogueTurn[]>>;
   detectTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
   detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
   detectEchoChamber(text: string): Promise<ContractResult<EchoChamberResult[]>>;

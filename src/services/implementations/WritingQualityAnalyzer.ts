@@ -8,8 +8,9 @@ import {
   WritingQualityReport,
   EchoChamberResult,
   TextSegment,
+  DialogueTurn, // Added DialogueTurn
 } from '../../types/contracts';
-import { TextAnalysisEngine } from '../TextAnalysisEngine';
+import { TextAnalysisEngine } from './TextAnalysisEngine'; // Corrected import path
 
 export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
   private static readonly STOP_WORDS: string[] = [
@@ -585,6 +586,206 @@ export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
       return {
         success: false,
         error: `Echo chamber detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  async analyzeDialoguePowerBalance(sceneText: string): Promise<ContractResult<DialogueTurn[]>> {
+    try {
+      const segmentsResult = await this.textAnalysisEngine.parseText(sceneText);
+      if (!segmentsResult.success || !segmentsResult.data) {
+        return { success: false, error: segmentsResult.error || "Failed to parse text for power balance analysis." };
+      }
+
+      const dialogueSegments = segmentsResult.data.filter(
+        (segment): segment is TextSegment & { speaker: string } =>
+          segment.type === 'dialogue' &&
+          typeof segment.speaker === 'string' &&
+          segment.speaker.trim() !== '' &&
+          segment.speaker.toLowerCase() !== 'narrator'
+      );
+
+      if (dialogueSegments.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      const HEDGE_WORDS = ['maybe', 'perhaps', 'sort of', 'kind of', 'i think', 'i guess', 'possibly', 'could be', 'might be', 'a little', 'somewhat', 'arguably', 'potentially', 'presumably'];
+      const INTENSIFIER_WORDS = ['very', 'really', 'absolutely', 'definitely', 'totally', 'completely', 'extremely', 'highly', 'never', 'always', 'must', 'certainly', 'undoubtedly'];
+      const POLITENESS_KEYWORDS = ['please', 'thank you', 'sir', 'madam', 'ma\'am', 'pardon me', 'excuse me', 'mr.', 'mrs.', 'ms.'];
+      const QUESTION_WORDS = ['who', 'what', 'when', 'where', 'why', 'how', 'is', 'are', 'do', 'does', 'did', 'can', 'could', 'will', 'would', 'should', 'may', 'might'];
+      const COMMAND_VERBS = ['go', 'do', 'tell', 'give', 'take', 'bring', 'stop', 'start', 'listen', 'look', 'come', 'leave', 'wait', 'hurry']; // Simple list, could be expanded
+      const TERMINATION_PHRASES = ["this conversation is over", "i have nothing more to say", "we're done here", "goodbye", "i'm leaving"];
+
+      const dialogueTurns: DialogueTurn[] = [];
+      let previousTurnTopics: Set<string> = new Set();
+      let lastSpeaker = "";
+
+      for (let i = 0; i < dialogueSegments.length; i++) {
+        const segment = dialogueSegments[i];
+        const text = segment.content.toLowerCase();
+        const words = text.split(/\s+/).filter(w => w.length > 0);
+        const wordCount = words.length;
+
+        let powerScore = 0;
+        // Ensure all metric components are initialized for each turn
+        let isQuestion = false;
+        let interruptions = 0;
+        let hedgeCount = 0;
+        let intensifierCount = 0;
+        let topicChanged = false;
+        let detectedTactic: DialogueTurn['detectedTactic'] = undefined;
+
+        // 1. Word Count (Base) & Question Detection
+        // Longer sentences can indicate dominance, but questions often cede power.
+        if (wordCount > 15) powerScore += 0.5;
+        if (wordCount < 5 && wordCount > 0) powerScore -= 0.5;
+
+        if (text.endsWith('?') || QUESTION_WORDS.some(qw => words[0] === qw)) {
+          isQuestion = true;
+          powerScore -= 1; // Asking a question cedes power
+        }
+
+        // 2. Command Detection
+        if (COMMAND_VERBS.some(cv => words[0] === cv && !isQuestion)) {
+            powerScore += 1.5; // Issuing a command
+        }
+
+        // 3. Interruptions (Heuristic)
+        // If the speaker changes and the previous segment ended abruptly or the current one starts with an interruption marker.
+        if (i > 0) {
+            const prevSegment = dialogueSegments[i-1];
+            if (segment.speaker !== prevSegment.speaker) { // Speaker changed
+                if (prevSegment.content.endsWith("...") || prevSegment.content.endsWith("--")) {
+                    interruptions++;
+                    powerScore += 0.5; // Successful interruption
+                }
+                if (segment.content.startsWith("...") || segment.content.startsWith("--")) {
+                    // This turn is an interruption itself, or responding to one.
+                    // If it *is* an interruption, it's powerful. If it's *responding* to one, less so.
+                    // Simplified: let's assume starting with an interrupter is taking control.
+                     powerScore += 0.2;
+                }
+            }
+        }
+
+
+        // 4. Hedge vs. Intensifier Logic
+        words.forEach(word => {
+          if (HEDGE_WORDS.includes(word)) hedgeCount++;
+          if (INTENSIFIER_WORDS.includes(word)) intensifierCount++;
+        });
+        let hedgeToIntensifierRatio = 0;
+        if (hedgeCount + intensifierCount > 0) {
+            hedgeToIntensifierRatio = intensifierCount / (hedgeCount + intensifierCount);
+        }
+        if (intensifierCount > hedgeCount) powerScore += (intensifierCount - hedgeCount) * 0.3;
+        else if (hedgeCount > intensifierCount) powerScore -= (hedgeCount - intensifierCount) * 0.3;
+
+
+        // 5. Topic Control Logic (Simplified Noun Extraction)
+        const currentTurnTopics = new Set<string>();
+        words.forEach(word => {
+          // Simple heuristic: longer words that are not stop words or special words might be nouns/topics
+          if (word.length > 4 && !WritingQualityAnalyzer.STOP_WORDS.includes(word) && !HEDGE_WORDS.includes(word) && !INTENSIFIER_WORDS.includes(word) && !POLITENESS_KEYWORDS.includes(word)) {
+            currentTurnTopics.add(word);
+          }
+        });
+
+        if (previousTurnTopics.size > 0 && currentTurnTopics.size > 0) {
+          const intersection = new Set([...previousTurnTopics].filter(x => currentTurnTopics.has(x)));
+          if (intersection.size === 0 && currentTurnTopics.size > 1) { // Completely new set of topics
+            topicChanged = true;
+            powerScore += 1; // Successfully changed topic
+          } else if (currentTurnTopics.size > intersection.size +1) { // Introduced new topics alongside old ones
+            topicChanged = true; // Still counts as changing/guiding topic
+            powerScore += 0.5;
+          }
+        } else if (currentTurnTopics.size > 1 && i > 0) { // Introduced topics where there were none or first substantive turn
+            topicChanged = true;
+            powerScore += 0.5;
+        }
+        previousTurnTopics = currentTurnTopics;
+
+        // 6. Pronoun Ratio (I/My vs You/Your)
+        let firstPersonCount = 0;
+        let secondPersonCount = 0;
+        words.forEach(word => {
+          if (['i', 'me', 'my', 'mine'].includes(word)) firstPersonCount++;
+          if (['you', 'your', 'yours'].includes(word)) secondPersonCount++;
+        });
+        if (firstPersonCount > secondPersonCount && secondPersonCount === 0 && firstPersonCount > 1) { // High self-focus, potentially dominant if not pleading
+            powerScore += 0.3;
+        } else if (secondPersonCount > firstPersonCount && firstPersonCount === 0 && secondPersonCount > 1) { // High focus on other, potentially accusatory or commanding
+            powerScore += 0.2;
+        }
+
+
+        // 7. Response Latency (Heuristic - check narrative *before* this segment)
+        if (i > 0) {
+            const textBetween = sceneText.substring(dialogueSegments[i-1].endPosition, segment.startPosition).toLowerCase();
+            if (/\b(paused|hesitated|waited|moment of silence|beat)\b/.test(textBetween)) {
+                // Pause before speaking could be strategic (power up) or hesitant (power down)
+                // For now, let's assume strategic if not a question and not many hedges
+                if (!isQuestion && hedgeCount < 2) {
+                    powerScore += 0.4;
+                } else {
+                    powerScore -= 0.4;
+                }
+            }
+        }
+
+        // 8. Weaponized Politeness (Simplified context: if previous turn had high power indicators)
+        const usesPoliteness = POLITENESS_KEYWORDS.some(pk => text.includes(pk));
+        if (usesPoliteness && dialogueTurns.length > 0) {
+            const prevTurn = dialogueTurns[dialogueTurns.length-1];
+            // If previous turn was strong (commanding, many intensifiers, changed topic)
+            // and current turn is polite, it might be "weaponized"
+            // Need to ensure metrics object and its properties exist on prevTurn before accessing
+            if (prevTurn.metrics &&
+                (prevTurn.powerScore > 1.5 || (prevTurn.metrics.hedgeToIntensifierRatio > 0.6 && prevTurn.metrics.wordCount > 5))) { // Example: more intensifiers than hedges
+                detectedTactic = 'weaponizedPoliteness';
+                powerScore += 1.2;
+            }
+        }
+
+        // 9. Exchange Termination
+        if (TERMINATION_PHRASES.some(tp => text.includes(tp))) {
+            detectedTactic = 'exchangeTermination';
+            powerScore += 2.5; // Strong move
+        } else if (i === dialogueSegments.length -1 && dialogueSegments.length > 1) { // Last dialogue turn of the scene
+            // Check narration immediately after this segment for leaving cues
+            const narrationAfter = sceneText.substring(segment.endPosition).toLowerCase().split('\n')[0]; // First line of narration after
+            if (/\b(left|walked away|turned away|hung up|closed the door)\b/.test(narrationAfter)) {
+                detectedTactic = 'exchangeTermination';
+                powerScore += 2.0;
+            }
+        }
+
+        // Normalize powerScore to be within -5 to +5
+        powerScore = Math.max(-5, Math.min(5, parseFloat(powerScore.toFixed(2))));
+
+        dialogueTurns.push({
+          characterName: segment.speaker,
+          powerScore: powerScore,
+          metrics: {
+            isQuestion,
+            interruptions,
+            wordCount,
+            hedgeToIntensifierRatio: parseFloat(hedgeToIntensifierRatio.toFixed(2)),
+            topicChanged,
+          },
+          detectedTactic,
+        });
+        lastSpeaker = segment.speaker;
+      }
+
+      return { success: true, data: dialogueTurns };
+
+    } catch (error) {
+      console.error("Error in analyzeDialoguePowerBalance:", error);
+      return {
+        success: false,
+        error: `Dialogue power balance analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }

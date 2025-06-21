@@ -1,93 +1,78 @@
 import React, { useState, useEffect } from 'react';
-<<<<<<< HEAD
-import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, Palette, Zap } from 'lucide-react';
-import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, LiteraryDeviceInstance } from '../types/contracts';
-import ColorPaletteDisplay from './ColorPaletteDisplay';
-import LiteraryDeviceReport from './LiteraryDeviceReport';
-import { SeamManager } from '../services/SeamManager';
-import { AIEnhancementService } from '../services/implementations/AIEnhancementService';
-=======
-import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, LineChart as ReadabilityIcon } from 'lucide-react';
-import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, ReadabilityPoint, IWritingQualityAnalyzer, ContractResult } from '../types/contracts';
-import { ReadabilityChart } from './ReadabilityChart'; // Import the new chart component
-import { WritingQualityAnalyzer } from '../services/implementations/WritingQualityAnalyzer'; // Assuming direct instantiation for now
->>>>>>> origin/feat/flesch-kincaid-rollercoaster
+// Using the imports from origin/feat/flesch-kincaid-rollercoaster as it's more up-to-date
+import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, LineChart as ReadabilityIcon, TrendingUp } from 'lucide-react';
+import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, ReadabilityPoint, DialogueTurn, IWritingQualityAnalyzer, ContractResult } from '../types/contracts';
+import { ReadabilityChart } from './ReadabilityChart';
+import { PowerBalanceChart } from './reports/PowerBalanceChart'; // Ensure this path is correct
+import { WritingQualityAnalyzer } from '../services/implementations/WritingQualityAnalyzer';
 
 interface WritingQualityReportProps {
   report: QualityReportType;
   originalText: string;
-<<<<<<< HEAD
-  // literaryDevices?: LiteraryDeviceInstance[]; // Optional: pass devices directly
-}
-
-// Mock data for literary devices (can be replaced with actual data fetching)
-const mockLiteraryDevices: LiteraryDeviceInstance[] = [
-  { deviceType: 'Metaphor', textSnippet: "Her eyes were pools of the deepest blue.", explanation: "Compares eyes to pools without using 'like' or 'as'.", position: 10 },
-  { deviceType: 'Simile', textSnippet: "He runs like the wind.", explanation: "Compares running speed to wind using 'like'.", position: 50 },
-  { deviceType: 'Alliteration', textSnippet: "Silly snakes slither silently.", explanation: "Repetition of the 's' sound.", position: 100 },
-];
-
-export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText }) => {
-  // Add both tabs to activeTab state type
-  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'color-palette' | 'literary-devices'>('overview');
-  const [literaryDevices, setLiteraryDevices] = useState<LiteraryDeviceInstance[]>(mockLiteraryDevices); // Initialize with mock
-  const [isLoadingLiteraryDevices, setIsLoadingLiteraryDevices] = useState(false);
-
-  useEffect(() => {
-    const fetchDevices = async () => {
-      setIsLoadingLiteraryDevices(true);
-      const aiService = new AIEnhancementService();
-      const result = await aiService.analyzeLiteraryDevices(originalText);
-      if (result.success && result.data) {
-        setLiteraryDevices(result.data);
-      } else {
-        console.error("Failed to fetch literary devices:", result.error);
-        setLiteraryDevices(mockLiteraryDevices); // Fallback to mock on error
-      }
-      setIsLoadingLiteraryDevices(false);
-    };
-    // Uncomment to enable API call
-    // if (originalText) fetchDevices();
-    setLiteraryDevices(mockLiteraryDevices);
-  }, [originalText]);
-=======
-  analyzer?: IWritingQualityAnalyzer; // Optional: pass if already available, or instantiate locally
+  analyzer?: IWritingQualityAnalyzer;
 }
 
 export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText, analyzer: initialAnalyzer }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'readability'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'readability' | 'power-balance'>('overview');
   const [readabilityData, setReadabilityData] = useState<ReadabilityPoint[] | null>(null);
   const [isLoadingReadability, setIsLoadingReadability] = useState<boolean>(false);
   const [readabilityError, setReadabilityError] = useState<string | null>(null);
 
-  // Instantiate analyzer if not provided (this is a placeholder; ideally, it comes from context or props)
+  // State for Power Balance
+  const [powerBalanceData, setPowerBalanceData] = useState<DialogueTurn[] | null>(null);
+  const [isLoadingPowerBalance, setIsLoadingPowerBalance] = useState<boolean>(false);
+  const [powerBalanceError, setPowerBalanceError] = useState<string | null>(null);
+
   const analyzer = initialAnalyzer || new WritingQualityAnalyzer();
 
   useEffect(() => {
-    if (activeTab === 'readability' && !readabilityData && !isLoadingReadability && !readabilityError) {
-      const fetchReadability = async () => {
-        setIsLoadingReadability(true);
-        setReadabilityError(null);
-        try {
-          const result: ContractResult<ReadabilityPoint[]> = await analyzer.analyzeReadabilityRollercoaster(originalText);
-          if (result.success && result.data) {
-            setReadabilityData(result.data);
-          } else {
-            setReadabilityError(result.error || 'Failed to load readability data.');
-            setReadabilityData([]); // Ensure it's an empty array on error
-          }
-        } catch (err) {
-          console.error("Error fetching readability data:", err);
-          setReadabilityError(err instanceof Error ? err.message : 'An unknown error occurred.');
-          setReadabilityData([]); // Ensure it's an empty array on error
-        } finally {
-          setIsLoadingReadability(false);
+    const fetchReadability = async () => {
+      setIsLoadingReadability(true);
+      setReadabilityError(null);
+      try {
+        const result = await analyzer.analyzeReadabilityRollercoaster(originalText);
+        if (result.success && result.data) {
+          setReadabilityData(result.data);
+        } else {
+          setReadabilityError(result.error || 'Failed to load readability data.');
+          setReadabilityData([]);
         }
-      };
+      } catch (err) {
+        console.error("Error fetching readability data:", err);
+        setReadabilityError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        setReadabilityData([]);
+      } finally {
+        setIsLoadingReadability(false);
+      }
+    };
+
+    const fetchPowerBalance = async () => {
+      setIsLoadingPowerBalance(true);
+      setPowerBalanceError(null);
+      try {
+        const result = await analyzer.analyzeDialoguePowerBalance(originalText);
+        if (result.success && result.data) {
+          setPowerBalanceData(result.data);
+        } else {
+          setPowerBalanceError(result.error || 'Failed to load power balance data.');
+          setPowerBalanceData([]);
+        }
+      } catch (err) {
+        console.error("Error fetching power balance data:", err);
+        setPowerBalanceError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        setPowerBalanceData([]);
+      } finally {
+        setIsLoadingPowerBalance(false);
+      }
+    };
+
+    if (activeTab === 'readability' && !readabilityData && !isLoadingReadability && !readabilityError) {
       fetchReadability();
     }
-  }, [activeTab, originalText, analyzer, readabilityData, isLoadingReadability, readabilityError]);
->>>>>>> origin/feat/flesch-kincaid-rollercoaster
+    if (activeTab === 'power-balance' && !powerBalanceData && !isLoadingPowerBalance && !powerBalanceError) {
+      fetchPowerBalance();
+    }
+  }, [activeTab, originalText, analyzer, readabilityData, powerBalanceData, isLoadingReadability, isLoadingPowerBalance, readabilityError, powerBalanceError]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600 bg-green-100';
@@ -125,12 +110,8 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
           { key: 'show-tell', label: 'Show vs Tell', icon: Eye },
           { key: 'tropes', label: 'Trope Analysis', icon: Target },
           { key: 'prose', label: 'Prose Quality', icon: Sparkles },
-<<<<<<< HEAD
-          { key: 'color-palette', label: 'Color Palette', icon: Palette },
-          { key: 'literary-devices', label: 'Literary Devices', icon: Zap }
-=======
-          { key: 'readability', label: 'Readability', icon: ReadabilityIcon }
->>>>>>> origin/feat/flesch-kincaid-rollercoaster
+          { key: 'readability', label: 'Readability', icon: ReadabilityIcon },
+          { key: 'power-balance', label: 'Power Balance', icon: TrendingUp } // Added Power Balance Tab
         ].map((tab) => (
           <button
             key={tab.key}
@@ -225,23 +206,6 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
         <ProseQualityTab issues={report.purpleProseIssues} originalText={originalText} />
       )}
 
-<<<<<<< HEAD
-      {/* Render ColorPaletteDisplay when its tab is active */}
-      {activeTab === 'color-palette' && (
-        <ColorPaletteDisplay />
-      )}
-      {/* Render LiteraryDeviceReport when its tab is active */}
-      {activeTab === 'literary-devices' && (
-        isLoadingLiteraryDevices ? (
-          <div className="text-center py-12">
-            <Zap className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-pulse" />
-            <h4 className="text-xl font-semibold text-gray-800 mb-2">Scanning for Literary Devices...</h4>
-            <p className="text-gray-600">This may take a moment.</p>
-          </div>
-        ) : (
-          <LiteraryDeviceReport devices={literaryDevices} />
-        )
-=======
       {activeTab === 'readability' && (
         <div>
           <h4 className="text-lg font-semibold text-gray-800 mb-4">Readability Rollercoaster (Flesch-Kincaid)</h4>
@@ -254,7 +218,21 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
             <div className="text-center p-4">Not enough text or paragraphs to generate a readability chart.</div>
           )}
         </div>
->>>>>>> origin/feat/flesch-kincaid-rollercoaster
+      )}
+
+      {/* Power Balance Tab Content */}
+      {activeTab === 'power-balance' && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Dialogue Power Balance</h4>
+          {isLoadingPowerBalance && <div className="text-center p-4">Loading power balance chart...</div>}
+          {powerBalanceError && <div className="text-center p-4 text-red-600">Error: {powerBalanceError}</div>}
+          {powerBalanceData && powerBalanceData.length > 0 && !isLoadingPowerBalance && !powerBalanceError && (
+            <PowerBalanceChart data={powerBalanceData} />
+          )}
+          {powerBalanceData && powerBalanceData.length === 0 && !isLoadingPowerBalance && !powerBalanceError && (
+            <div className="text-center p-4">Not enough dialogue data to generate a power balance chart.</div>
+          )}
+        </div>
       )}
     </div>
   );
