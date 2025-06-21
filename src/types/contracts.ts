@@ -61,6 +61,14 @@ export interface Character {
   firstAppearance: number;
 }
 
+export enum ActorArchetype {
+  MethodActor = "The Method Actor (Subtle, realistic delivery)",
+  ShakespeareanVeteran = "The Shakespearean Veteran (Dramatic, powerful delivery)",
+  ComedicImproviser = "The Comedic Improviser (Playful, witty delivery)",
+  UnderstatedIndieDarling = "The Understated Indie Darling (Quiet, nuanced delivery)",
+  ActionHero = "The Action Hero (Tense, forceful delivery)",
+}
+
 export interface ICharacterDetectionSystem {
   detectCharacters(segments: TextSegment[]): Promise<ContractResult<Character[]>>;
   identifySpeakers(text: string): Promise<ContractResult<string[]>>;
