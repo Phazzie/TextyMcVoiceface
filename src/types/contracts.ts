@@ -370,6 +370,12 @@ export interface PurpleProseIssue {
   simplifiedVersion: string;
 }
 
+export interface EchoChamberResult {
+  word: string;
+  frequency: number;
+  characters: string[]; // List of characters who used the word.
+}
+
 export interface WritingQualityReport {
   showTellIssues: ShowTellIssue[];
   tropeMatches: TropeMatch[];
@@ -385,6 +391,7 @@ export interface IWritingQualityAnalyzer {
   analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>>;
   detectTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
   detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
+  detectEchoChamber(text: string): Promise<ContractResult<EchoChamberResult[]>>;
   generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>>;
 }
 
