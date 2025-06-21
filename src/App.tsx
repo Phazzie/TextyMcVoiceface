@@ -13,6 +13,7 @@ import { AudioControlsManager } from './services/implementations/AudioControlsMa
 import { VoiceCustomizer as VoiceCustomizerService } from './services/implementations/VoiceCustomizer';
 import { TextEditor } from './services/implementations/TextEditor';
 import { ProjectManager as ProjectManagerService } from './services/implementations/ProjectManager';
+import { AIEnhancementService } from './services/implementations/AIEnhancementService'; // Added AI Enhancement Service
 import { supabaseService } from './services/implementations/SupabaseService';
 import { secureConfig } from './services/implementations/SecureConfigManager';
 import { AuthPage } from './components/AuthPage'; // Added AuthPage import
@@ -111,14 +112,41 @@ function App() {
       }
       
       // Check for ElevenLabs API key
-      const elevenLabsKey = await secureConfig.getElevenLabsApiKey();
-      if (elevenLabsKey.success && elevenLabsKey.data) {
+      const elevenLabsKeyResult = await secureConfig.getElevenLabsApiKey();
+      if (elevenLabsKeyResult.success && elevenLabsKeyResult.data) {
         setInitializationStatus('Setting up ElevenLabs integration...');
-        await setupElevenLabs(elevenLabsKey.data);
+        await setupElevenLabs(elevenLabsKeyResult.data);
       } else {
         // Fallback to browser speech
         seamManager.registerAudioGenerationPipeline(new AudioGenerationPipeline());
         setUseElevenLabs(false);
+        if (!elevenLabsKeyResult.success) {
+          addNotification(`Could not retrieve ElevenLabs API key: ${elevenLabsKeyResult.error}`, 'warning');
+        }
+      }
+
+      // Setup AIEnhancementService
+      setInitializationStatus('Setting up AI Trope Inverter...');
+      const openAIApiKeyResult = await secureConfig.getOpenAIApiKey();
+      if (openAIApiKeyResult.success && openAIApiKeyResult.data) {
+        try {
+          const aiEnhancementService = new AIEnhancementService(openAIApiKeyResult.data);
+          seamManager.registerAIEnhancementService(aiEnhancementService);
+          addNotification('AI Trope Inverter enabled.', 'info');
+          setInitializationStatus('AI Trope Inverter ready!');
+        } catch (e) {
+          console.error('Failed to initialize AIEnhancementService:', e);
+          addNotification(`Failed to initialize AI Trope Inverter: ${e instanceof Error ? e.message : 'Unknown error'}. Trope inversion will be unavailable.`, 'error');
+          setInitializationStatus('AI Trope Inverter disabled.');
+        }
+      } else {
+        if (!openAIApiKeyResult.success) {
+           addNotification(`Could not retrieve OpenAI API key: ${openAIApiKeyResult.error}. Trope inversion will be unavailable.`, 'warning');
+        } else {
+          addNotification('OpenAI API key not set. AI Trope Inverter will be unavailable. Configure it via settings if available.', 'info');
+        }
+        setInitializationStatus('AI Trope Inverter disabled (no API key).');
+        console.log('OpenAI API key not found. AIEnhancementService will not be available.');
       }
       
       const orchestratorInstance = new SystemOrchestrator();

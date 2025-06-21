@@ -2,6 +2,7 @@ import { ContractResult } from '../../types/contracts';
 
 interface SecureConfig {
   elevenLabsApiKey?: string;
+  openAIApiKey?: string; // Added OpenAI API key
   supabaseUrl?: string;
   supabaseAnonKey?: string;
 }
@@ -27,7 +28,8 @@ export class SecureConfigManager {
     return {
       supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
       supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      elevenLabsApiKey: import.meta.env.VITE_ELEVENLABS_API_KEY
+      elevenLabsApiKey: import.meta.env.VITE_ELEVENLABS_API_KEY,
+      openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY
     };
   }
 
@@ -70,10 +72,59 @@ export class SecureConfigManager {
       if (this.config.elevenLabsApiKey && !import.meta.env.VITE_ELEVENLABS_API_KEY) {
         configToSave.elevenLabsApiKey = this.config.elevenLabsApiKey;
       }
+      if (this.config.openAIApiKey && !import.meta.env.VITE_OPENAI_API_KEY) {
+        configToSave.openAIApiKey = this.config.openAIApiKey;
+      }
       
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(configToSave));
     } catch (error) {
       console.warn('Failed to save config:', error);
+    }
+  }
+
+  async setOpenAIApiKey(apiKey: string): Promise<ContractResult<boolean>> {
+    try {
+      if (!apiKey || apiKey.trim().length === 0) {
+        return { success: false, error: 'OpenAI API key cannot be empty' };
+      }
+      // Basic validation for OpenAI keys (usually start with 'sk-')
+      if (!apiKey.startsWith('sk-')) {
+        // console.warn('OpenAI API key does not start with "sk-". This might be an issue.');
+        // Not returning error for now, as some proxy services might use different formats.
+      }
+      this.config.openAIApiKey = apiKey.trim();
+      this.saveConfig();
+      return { success: true, data: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to set OpenAI API key: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  async getOpenAIApiKey(): Promise<ContractResult<string | null>> {
+    try {
+      const apiKey = this.config.openAIApiKey || null;
+      return { success: true, data: apiKey };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get OpenAI API key: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  async clearOpenAIApiKey(): Promise<ContractResult<boolean>> {
+    try {
+      delete this.config.openAIApiKey;
+      this.saveConfig();
+      return { success: true, data: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to clear OpenAI API key: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
     }
   }
 

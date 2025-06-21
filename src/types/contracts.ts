@@ -565,6 +565,11 @@ export interface ITextEditor {
   broadcastChange(change: TextChange): Promise<ContractResult<boolean>>;
 }
 
+// AI Enhancement Service Contract
+export interface IAIEnhancementService {
+  invertTrope(sceneContext: string, trope: TropeMatch): Promise<ContractResult<string>>;
+}
+
 // System Orchestration Seam Contracts
 export interface ProcessingStatus {
   stage: 'analyzing' | 'detecting' | 'assigning' | 'generating' | 'quality_check' | 'complete' | 'error';

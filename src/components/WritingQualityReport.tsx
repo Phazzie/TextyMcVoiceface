@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target } from 'lucide-react';
-import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue } from '../types/contracts';
+import React, { useState, useEffect } from 'react';
+import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, RefreshCw, Wand2 } from 'lucide-react';
+import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, IAIEnhancementService } from '../types/contracts';
+import { SeamManager } from '../services/SeamManager';
+import { useNotifier } from '../hooks/useNotifier';
 
 interface WritingQualityReportProps {
   report: QualityReportType;
@@ -190,7 +192,61 @@ const ShowTellTab: React.FC<{ issues: ShowTellIssue[]; originalText: string }> =
   );
 };
 
-const TropeAnalysisTab: React.FC<{ matches: TropeMatch[]; originalText: string }> = ({ matches }) => {
+interface TropeInteractionState {
+  [tropeNameAndPosition: string]: {
+    suggestion?: string;
+    isLoading: boolean;
+    error?: string;
+  };
+}
+
+const TropeAnalysisTab: React.FC<{ matches: TropeMatch[]; originalText: string }> = ({ matches, originalText }) => {
+  const [aiEnhancementService, setAiEnhancementService] = useState<IAIEnhancementService | undefined>(undefined);
+  const [tropeSuggestions, setTropeSuggestions] = useState<TropeInteractionState>({});
+  const { addNotification } = useNotifier();
+
+  useEffect(() => {
+    const service = SeamManager.getInstance().getAIEnhancementService();
+    setAiEnhancementService(service);
+  }, []);
+
+  const handleInvertTrope = async (trope: TropeMatch) => {
+    if (!aiEnhancementService) {
+      addNotification('AI Enhancement Service is not available. Cannot invert trope.', 'error');
+      return;
+    }
+
+    const tropeKey = `${trope.name}-${trope.position}`;
+    setTropeSuggestions(prev => ({
+      ...prev,
+      [tropeKey]: { isLoading: true, error: undefined, suggestion: undefined }
+    }));
+
+    try {
+      const result = await aiEnhancementService.invertTrope(originalText, trope);
+      if (result.success && result.data) {
+        setTropeSuggestions(prev => ({
+          ...prev,
+          [tropeKey]: { isLoading: false, suggestion: result.data }
+        }));
+        addNotification(`New subversion idea generated for "${trope.name}"!`, 'success');
+      } else {
+        setTropeSuggestions(prev => ({
+          ...prev,
+          [tropeKey]: { isLoading: false, error: result.error || 'Failed to get suggestion.' }
+        }));
+        addNotification(`Could not generate subversion for "${trope.name}": ${result.error}`, 'error');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      setTropeSuggestions(prev => ({
+        ...prev,
+        [tropeKey]: { isLoading: false, error: errorMessage }
+      }));
+      addNotification(`Error inverting trope: ${errorMessage}`, 'error');
+    }
+  };
+
   if (matches.length === 0) {
     return (
       <div className="text-center py-12">
@@ -208,34 +264,77 @@ const TropeAnalysisTab: React.FC<{ matches: TropeMatch[]; originalText: string }
         <div className="text-sm text-gray-600">{matches.length} tropes found</div>
       </div>
       
-      {matches.map((match, index) => (
-        <div key={index} className="border-l-4 border-purple-400 bg-purple-50 p-4 rounded-r-lg">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <h5 className="font-semibold text-gray-800">{match.name}</h5>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <span className="capitalize">{match.category}</span>
-                <span>•</span>
-                <span>{Math.round(match.confidence * 100)}% confidence</span>
+      {matches.map((match) => {
+        const tropeKey = `${match.name}-${match.position}`;
+        const currentSuggestionState = tropeSuggestions[tropeKey];
+
+        return (
+          <div key={tropeKey} className="border-l-4 border-purple-400 bg-purple-50 p-4 rounded-r-lg">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h5 className="font-semibold text-gray-800">{match.name}</h5>
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <span className="capitalize">{match.category}</span>
+                  <span>•</span>
+                  <span>{Math.round(match.confidence * 100)}% confidence</span>
+                </div>
               </div>
+              <button
+                onClick={() => handleInvertTrope(match)}
+                disabled={!aiEnhancementService || currentSuggestionState?.isLoading}
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-200 rounded-md hover:bg-purple-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {currentSuggestionState?.isLoading ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="w-3.5 h-3.5" />
+                )}
+                <span>{currentSuggestionState?.isLoading ? 'Working...' : 'Invert Trope'}</span>
+              </button>
             </div>
+
+            <div className="font-mono text-sm bg-white p-2 rounded border mb-3">"{match.text}"</div>
+
+            {currentSuggestionState?.suggestion && (
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <h6 className="font-medium text-sm text-green-800 mb-1 flex items-center">
+                  <Lightbulb className="w-4 h-4 mr-2 text-green-600" />
+                  AI Subversion Idea:
+                </h6>
+                <p className="text-sm text-green-700">{currentSuggestionState.suggestion}</p>
+              </div>
+            )}
+
+            {currentSuggestionState?.error && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <h6 className="font-medium text-sm text-red-800 mb-1 flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-2 text-red-600" />
+                  Error:
+                </h6>
+                <p className="text-sm text-red-700">{currentSuggestionState.error}</p>
+              </div>
+            )}
+
+            {!currentSuggestionState?.suggestion && !currentSuggestionState?.error && (
+                 <div>
+                    <h6 className="font-medium text-gray-800 mb-2 text-sm">💡 Original Subversion Ideas:</h6>
+                    {match.subversionSuggestions && match.subversionSuggestions.length > 0 ? (
+                        <ul className="space-y-1 text-sm text-gray-700">
+                        {match.subversionSuggestions.map((suggestion, i) => (
+                            <li key={i} className="flex items-start space-x-2">
+                            <span className="text-purple-500 mt-1">•</span>
+                            <span>{suggestion}</span>
+                            </li>
+                        ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-gray-500 italic">No pre-defined subversion ideas for this trope.</p>
+                    )}
+                 </div>
+            )}
           </div>
-          
-          <div className="font-mono text-sm bg-white p-2 rounded border mb-3">"{match.text}"</div>
-          
-          <div>
-            <h6 className="font-medium text-gray-800 mb-2">💡 Subversion Ideas:</h6>
-            <ul className="space-y-1 text-sm text-gray-700">
-              {match.subversionSuggestions.map((suggestion, i) => (
-                <li key={i} className="flex items-start space-x-2">
-                  <span className="text-purple-500 mt-1">•</span>
-                  <span>{suggestion}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
