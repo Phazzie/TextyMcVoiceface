@@ -1,56 +1,12 @@
 import React, { useState, useEffect } from 'react';
-<<<<<<< HEAD
-import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, Palette, Zap } from 'lucide-react';
-import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, LiteraryDeviceInstance } from '../types/contracts';
-import ColorPaletteDisplay from './ColorPaletteDisplay';
-import LiteraryDeviceReport from './LiteraryDeviceReport';
-import { SeamManager } from '../services/SeamManager';
-import { AIEnhancementService } from '../services/implementations/AIEnhancementService';
-=======
 import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, LineChart as ReadabilityIcon } from 'lucide-react';
 import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, ReadabilityPoint, IWritingQualityAnalyzer, ContractResult } from '../types/contracts';
 import { ReadabilityChart } from './ReadabilityChart'; // Import the new chart component
 import { WritingQualityAnalyzer } from '../services/implementations/WritingQualityAnalyzer'; // Assuming direct instantiation for now
->>>>>>> origin/feat/flesch-kincaid-rollercoaster
 
 interface WritingQualityReportProps {
   report: QualityReportType;
   originalText: string;
-<<<<<<< HEAD
-  // literaryDevices?: LiteraryDeviceInstance[]; // Optional: pass devices directly
-}
-
-// Mock data for literary devices (can be replaced with actual data fetching)
-const mockLiteraryDevices: LiteraryDeviceInstance[] = [
-  { deviceType: 'Metaphor', textSnippet: "Her eyes were pools of the deepest blue.", explanation: "Compares eyes to pools without using 'like' or 'as'.", position: 10 },
-  { deviceType: 'Simile', textSnippet: "He runs like the wind.", explanation: "Compares running speed to wind using 'like'.", position: 50 },
-  { deviceType: 'Alliteration', textSnippet: "Silly snakes slither silently.", explanation: "Repetition of the 's' sound.", position: 100 },
-];
-
-export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText }) => {
-  // Add both tabs to activeTab state type
-  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'color-palette' | 'literary-devices'>('overview');
-  const [literaryDevices, setLiteraryDevices] = useState<LiteraryDeviceInstance[]>(mockLiteraryDevices); // Initialize with mock
-  const [isLoadingLiteraryDevices, setIsLoadingLiteraryDevices] = useState(false);
-
-  useEffect(() => {
-    const fetchDevices = async () => {
-      setIsLoadingLiteraryDevices(true);
-      const aiService = new AIEnhancementService();
-      const result = await aiService.analyzeLiteraryDevices(originalText);
-      if (result.success && result.data) {
-        setLiteraryDevices(result.data);
-      } else {
-        console.error("Failed to fetch literary devices:", result.error);
-        setLiteraryDevices(mockLiteraryDevices); // Fallback to mock on error
-      }
-      setIsLoadingLiteraryDevices(false);
-    };
-    // Uncomment to enable API call
-    // if (originalText) fetchDevices();
-    setLiteraryDevices(mockLiteraryDevices);
-  }, [originalText]);
-=======
   analyzer?: IWritingQualityAnalyzer; // Optional: pass if already available, or instantiate locally
 }
 
@@ -87,7 +43,6 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
       fetchReadability();
     }
   }, [activeTab, originalText, analyzer, readabilityData, isLoadingReadability, readabilityError]);
->>>>>>> origin/feat/flesch-kincaid-rollercoaster
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600 bg-green-100';
@@ -125,12 +80,7 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
           { key: 'show-tell', label: 'Show vs Tell', icon: Eye },
           { key: 'tropes', label: 'Trope Analysis', icon: Target },
           { key: 'prose', label: 'Prose Quality', icon: Sparkles },
-<<<<<<< HEAD
-          { key: 'color-palette', label: 'Color Palette', icon: Palette },
-          { key: 'literary-devices', label: 'Literary Devices', icon: Zap }
-=======
           { key: 'readability', label: 'Readability', icon: ReadabilityIcon }
->>>>>>> origin/feat/flesch-kincaid-rollercoaster
         ].map((tab) => (
           <button
             key={tab.key}
@@ -225,23 +175,6 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
         <ProseQualityTab issues={report.purpleProseIssues} originalText={originalText} />
       )}
 
-<<<<<<< HEAD
-      {/* Render ColorPaletteDisplay when its tab is active */}
-      {activeTab === 'color-palette' && (
-        <ColorPaletteDisplay />
-      )}
-      {/* Render LiteraryDeviceReport when its tab is active */}
-      {activeTab === 'literary-devices' && (
-        isLoadingLiteraryDevices ? (
-          <div className="text-center py-12">
-            <Zap className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-pulse" />
-            <h4 className="text-xl font-semibold text-gray-800 mb-2">Scanning for Literary Devices...</h4>
-            <p className="text-gray-600">This may take a moment.</p>
-          </div>
-        ) : (
-          <LiteraryDeviceReport devices={literaryDevices} />
-        )
-=======
       {activeTab === 'readability' && (
         <div>
           <h4 className="text-lg font-semibold text-gray-800 mb-4">Readability Rollercoaster (Flesch-Kincaid)</h4>
@@ -254,7 +187,6 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
             <div className="text-center p-4">Not enough text or paragraphs to generate a readability chart.</div>
           )}
         </div>
->>>>>>> origin/feat/flesch-kincaid-rollercoaster
       )}
     </div>
   );
