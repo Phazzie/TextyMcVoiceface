@@ -425,7 +425,8 @@ export interface IWritingQualityAnalyzer {
 
 export interface IAIEnhancementService {
   invertTrope(context: string, tropeName: string): Promise<ContractResult<string>>;
-  rewriteFromNewPerspective(text: string, newCharacter: Character): Promise<ContractResult<string>>;
+  rewriteFromNewPerspective(text: string, newCharacterName: string, originalCharacterName: string): Promise<ContractResult<string>>;
+  analyzeLiteraryDevices(text: string): Promise<ContractResult<LiteraryDeviceInstance[]>>;
 }
 
 // Interactive Text Editor Seam Contracts
@@ -611,10 +612,6 @@ export interface LiteraryDeviceInstance {
   textSnippet: string;
   explanation: string;
   position: number;
-}
-
-export interface IAIEnhancementService {
-  analyzeLiteraryDevices(text: string): Promise<ContractResult<LiteraryDeviceInstance[]>>;
 }
 
 // System Orchestration Seam Contracts

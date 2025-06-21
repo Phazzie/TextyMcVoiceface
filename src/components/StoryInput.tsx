@@ -1,21 +1,91 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, Mic, Play } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react'; // Added useCallback
+import { Upload, FileText, Mic, Play, Wand2 } from 'lucide-react'; // Added Wand2
+import { PerspectiveShiftModal } from './modals/PerspectiveShiftModal'; // Added import
+import { Character } from '../types/contracts'; // Added import
 
 interface StoryInputProps {
   onTextSubmit: (text: string) => void;
   isProcessing: boolean;
   initialText?: string;
+  storyCharacters?: Character[]; // Added prop for character list
 }
 
-export const StoryInput: React.FC<StoryInputProps> = ({ onTextSubmit, isProcessing, initialText = '' }) => {
+export const StoryInput: React.FC<StoryInputProps> = ({
+  onTextSubmit,
+  isProcessing,
+  initialText = '',
+  storyCharacters = [] // Default to empty array
+}) => {
   const [inputText, setInputText] = useState(initialText);
   const [inputMode, setInputMode] = useState<'text' | 'file'>('text');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null); // Ref for textarea
 
-  // Update input text when initialText changes (e.g., when loading a project)
+  // State for Perspective Shift
+  const [isPerspectiveModalOpen, setIsPerspectiveModalOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
+  // For now, assume the original character is the one most frequent in the selected text or a default.
+  // A more robust solution would involve speaker detection for the selected segment.
+  const [originalCharacterForShift, setOriginalCharacterForShift] = useState<string>("Narrator");
+
   useEffect(() => {
     setInputText(initialText);
   }, [initialText]);
+
+  const handleTextSelection = () => {
+    if (textareaRef.current) {
+      const { selectionStart, selectionEnd, value } = textareaRef.current;
+      if (selectionStart !== selectionEnd) {
+        setSelectedText(value.substring(selectionStart, selectionEnd));
+        setSelectionRange({ start: selectionStart, end: selectionEnd });
+        // Simple heuristic for original character:
+        // This is a placeholder. A real implementation would need more context or user input.
+        // For now, we'll just use a default or the most prominent character if available.
+        if (storyCharacters.length > 0) {
+            // Ideally, analyze selectedText for character mentions or use context.
+            // Falling back to the first character or a default.
+            setOriginalCharacterForShift(storyCharacters[0]?.name || "Narrator");
+        }
+      } else {
+        setSelectedText('');
+        setSelectionRange(null);
+      }
+    }
+  };
+
+  const openPerspectiveShiftModal = () => {
+    if (selectedText) {
+      // Potentially add logic here to determine the originalCharacterName from the selectedText or context
+      // For now, using a placeholder or the globally assumed original character.
+      // A more sophisticated approach might involve parsing the selected text or allowing user to specify.
+      if (storyCharacters.length > 0 && !storyCharacters.find(c => c.name === originalCharacterForShift)) {
+        setOriginalCharacterForShift(storyCharacters[0]?.name || "Narrator");
+      }
+      setIsPerspectiveModalOpen(true);
+    }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputText(e.target.value);
+    handleTextSelection(); // Update selection on text change as well
+  };
+
+  // Callback to update text if Perspective Shift is successful (optional)
+  // const onRewriteSuccess = (rewrittenText: string) => {
+  //   if (selectionRange && textareaRef.current) {
+  //     const currentText = textareaRef.current.value;
+  //     const newText =
+  //       currentText.substring(0, selectionRange.start) +
+  //       rewrittenText +
+  //       currentText.substring(selectionRange.end);
+  //     setInputText(newText);
+  //     // Clear selection
+  //     setSelectedText('');
+  //     setSelectionRange(null);
+  //     textareaRef.current.setSelectionRange(selectionRange.start + rewrittenText.length, selectionRange.start + rewrittenText.length);
+  //   }
+  // };
 
   const handleSubmit = () => {
     if (inputText.trim() && !isProcessing) {
@@ -87,13 +157,18 @@ She felt a wave of relief wash over her. "Be careful," she said softly. "I'll be
         <div className="space-y-4">
           <textarea
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Paste your story here... Include dialogue in quotes and narrative text to see the magic happen!"
+            ref={textareaRef} // Added ref
+            value={inputText}
+            onChange={handleTextChange} // Updated handler
+            onSelect={handleTextSelection} // Added onSelect
+            onMouseUp={handleTextSelection} // Added onMouseUp for better selection detection
+            onKeyUp={handleTextSelection} // Added onKeyUp for selection changes via keyboard
+            placeholder="Paste your story here... Select text to try shifting perspective!"
             className="w-full h-64 p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 resize-none font-mono text-sm leading-relaxed"
             disabled={isProcessing}
           />
-          <div className="flex justify-between items-center">
-            <div className="flex space-x-2">
+          <div className="flex justify-between items-center mt-2"> {/* Added mt-2 for spacing */}
+            <div className="flex space-x-2 items-center"> {/* Ensure items are vertically centered */}
               <button
                 onClick={handleSampleLoad}
                 className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
@@ -102,10 +177,21 @@ She felt a wave of relief wash over her. "Be careful," she said softly. "I'll be
                 <Play className="w-4 h-4 inline mr-1" />
                 Load Sample Story
               </button>
-              <span className="text-sm text-gray-500 py-2">
-                {inputText.length} characters
-              </span>
+              {selectedText && (
+                <button
+                  onClick={openPerspectiveShiftModal}
+                  className="px-4 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-all duration-200 flex items-center"
+                  disabled={isProcessing || storyCharacters.length === 0}
+                  title={storyCharacters.length === 0 ? "No characters available to shift perspective" : "Shift perspective of selected text"}
+                >
+                  <Wand2 className="w-4 h-4 mr-1" />
+                  Shift Perspective
+                </button>
+              )}
             </div>
+            <span className="text-sm text-gray-500 py-2">
+              {inputText.length} characters {selectedText ? `(${selectedText.length} selected)` : ''}
+            </span>
           </div>
         </div>
       ) : (
@@ -158,6 +244,15 @@ She felt a wave of relief wash over her. "Be careful," she said softly. "I'll be
           )}
         </button>
       </div>
+
+      <PerspectiveShiftModal
+        isOpen={isPerspectiveModalOpen}
+        onClose={() => setIsPerspectiveModalOpen(false)}
+        originalText={selectedText}
+        originalCharacterName={originalCharacterForShift} // This needs to be determined more accurately
+        storyCharacters={storyCharacters}
+        // onRewriteSuccess={onRewriteSuccess} // Optional: handle text update
+      />
     </div>
   );
 };

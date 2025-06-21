@@ -45,4 +45,52 @@ Return your findings as a single JSON object with one key: "devices". The value 
       data: mockDevices
     };
   }
+
+  async invertTrope(context: string, tropeName: string): Promise<ContractResult<string>> {
+    // Placeholder for actual AI API call
+    console.log("AI Service: Invert Trope called with context:", context, "and trope:", tropeName);
+    // Simulate an API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Mock response
+    const mockInvertedTrope = `The opposite of ${tropeName} in the context of "${context.substring(0, 50)}..." might be "an unexpected subversion where the character defies expectations."`;
+
+    return {
+      success: true,
+      data: mockInvertedTrope
+    };
+  }
+
+  async rewriteFromNewPerspective(text: string, newCharacterName: string, originalCharacterName: string): Promise<ContractResult<string>> {
+    const systemPrompt = `You are an expert creative writing assistant. Your task is to rewrite the provided paragraph from the perspective of a different character.
+Original Text: "${text}"
+Original Character: "${originalCharacterName}"
+Rewrite this paragraph from the perspective of: "${newCharacterName}".
+Infer ${newCharacterName}'s likely thoughts, feelings, and observations about the events and dialogue in the original text. Maintain the core events but shift the internal monologue and descriptive focus.`;
+
+    // Placeholder for actual AI API call to OpenAI GPT-4o or similar
+    console.log("System Prompt for AI (Rewrite Perspective):", systemPrompt);
+
+    // Mock AI response
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+
+    const mockRewrittenText = `(From ${newCharacterName}'s perspective, watching ${originalCharacterName}): I saw ${originalCharacterName} say, "${text.substring(0, 50)}...". I couldn't believe they actually said that. I felt [inferred emotion based on newCharacterName, e.g., 'annoyed'/'amused'/'confused'] because [inferred reason]. What they didn't realize was [${newCharacterName}'s secret thought or observation].`;
+
+    if (!text || !newCharacterName || !originalCharacterName) {
+      return {
+        success: false,
+        error: "Missing required parameters: text, newCharacterName, or originalCharacterName."
+      };
+    }
+
+    return {
+      success: true,
+      data: mockRewrittenText,
+      metadata: {
+        originalText: text,
+        originalCharacterName,
+        newCharacterName,
+      }
+    };
+  }
 }
