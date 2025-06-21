@@ -1,14 +1,48 @@
-import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target } from 'lucide-react';
-import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue } from '../types/contracts';
+import React, { useState, useEffect } from 'react';
+import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, LineChart as ReadabilityIcon } from 'lucide-react';
+import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, ReadabilityPoint, IWritingQualityAnalyzer, ContractResult } from '../types/contracts';
+import { ReadabilityChart } from './ReadabilityChart'; // Import the new chart component
+import { WritingQualityAnalyzer } from '../services/implementations/WritingQualityAnalyzer'; // Assuming direct instantiation for now
 
 interface WritingQualityReportProps {
   report: QualityReportType;
   originalText: string;
+  analyzer?: IWritingQualityAnalyzer; // Optional: pass if already available, or instantiate locally
 }
 
-export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose'>('overview');
+export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText, analyzer: initialAnalyzer }) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'readability'>('overview');
+  const [readabilityData, setReadabilityData] = useState<ReadabilityPoint[] | null>(null);
+  const [isLoadingReadability, setIsLoadingReadability] = useState<boolean>(false);
+  const [readabilityError, setReadabilityError] = useState<string | null>(null);
+
+  // Instantiate analyzer if not provided (this is a placeholder; ideally, it comes from context or props)
+  const analyzer = initialAnalyzer || new WritingQualityAnalyzer();
+
+  useEffect(() => {
+    if (activeTab === 'readability' && !readabilityData && !isLoadingReadability && !readabilityError) {
+      const fetchReadability = async () => {
+        setIsLoadingReadability(true);
+        setReadabilityError(null);
+        try {
+          const result: ContractResult<ReadabilityPoint[]> = await analyzer.analyzeReadabilityRollercoaster(originalText);
+          if (result.success && result.data) {
+            setReadabilityData(result.data);
+          } else {
+            setReadabilityError(result.error || 'Failed to load readability data.');
+            setReadabilityData([]); // Ensure it's an empty array on error
+          }
+        } catch (err) {
+          console.error("Error fetching readability data:", err);
+          setReadabilityError(err instanceof Error ? err.message : 'An unknown error occurred.');
+          setReadabilityData([]); // Ensure it's an empty array on error
+        } finally {
+          setIsLoadingReadability(false);
+        }
+      };
+      fetchReadability();
+    }
+  }, [activeTab, originalText, analyzer, readabilityData, isLoadingReadability, readabilityError]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600 bg-green-100';
@@ -45,7 +79,8 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
           { key: 'overview', label: 'Overview', icon: BookOpen },
           { key: 'show-tell', label: 'Show vs Tell', icon: Eye },
           { key: 'tropes', label: 'Trope Analysis', icon: Target },
-          { key: 'prose', label: 'Prose Quality', icon: Sparkles }
+          { key: 'prose', label: 'Prose Quality', icon: Sparkles },
+          { key: 'readability', label: 'Readability', icon: ReadabilityIcon }
         ].map((tab) => (
           <button
             key={tab.key}
@@ -138,6 +173,20 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
 
       {activeTab === 'prose' && (
         <ProseQualityTab issues={report.purpleProseIssues} originalText={originalText} />
+      )}
+
+      {activeTab === 'readability' && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Readability Rollercoaster (Flesch-Kincaid)</h4>
+          {isLoadingReadability && <div className="text-center p-4">Loading readability chart...</div>}
+          {readabilityError && <div className="text-center p-4 text-red-600">Error: {readabilityError}</div>}
+          {readabilityData && readabilityData.length > 0 && !isLoadingReadability && !readabilityError && (
+            <ReadabilityChart data={readabilityData} />
+          )}
+          {readabilityData && readabilityData.length === 0 && !isLoadingReadability && !readabilityError && (
+            <div className="text-center p-4">Not enough text or paragraphs to generate a readability chart.</div>
+          )}
+        </div>
       )}
     </div>
   );

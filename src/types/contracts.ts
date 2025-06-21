@@ -342,6 +342,11 @@ export interface IAudioControlsManager {
 }
 
 // Writing Quality Analysis Contracts
+export interface ReadabilityPoint {
+  paragraphIndex: number;
+  score: number; // The Flesch-Kincaid reading ease score
+}
+
 export interface ShowTellIssue {
   text: string;
   position: number;
@@ -386,6 +391,7 @@ export interface IWritingQualityAnalyzer {
   detectTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
   detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
   generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>>;
+  analyzeReadabilityRollercoaster(text: string): Promise<ContractResult<ReadabilityPoint[]>>;
 }
 
 // Interactive Text Editor Seam Contracts
