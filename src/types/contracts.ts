@@ -350,6 +350,11 @@ export interface IAudioControlsManager {
 }
 
 // Writing Quality Analysis Contracts
+export interface ReadabilityPoint {
+  paragraphIndex: number;
+  score: number; // The Flesch-Kincaid reading ease score
+}
+
 export interface ShowTellIssue {
   text: string;
   position: number;
@@ -401,6 +406,7 @@ export interface IWritingQualityAnalyzer {
   detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
   detectEchoChamber(text: string): Promise<ContractResult<EchoChamberResult[]>>;
   generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>>;
+  analyzeReadabilityRollercoaster(text: string): Promise<ContractResult<ReadabilityPoint[]>>;
 }
 
 export interface IAIEnhancementService {

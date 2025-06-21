@@ -1,6 +1,7 @@
 import { 
   IWritingQualityAnalyzer, 
   ContractResult, 
+  ReadabilityPoint,
   ShowTellIssue,
   TropeMatch,
   PurpleProseIssue,
@@ -38,6 +39,75 @@ export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
     "b", "c", "d", "e", "f", "g", "h", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
   ];
   private textAnalysisEngine = new TextAnalysisEngine();
+
+  // Method to count syllables in a word (heuristic)
+  private countSyllables(word: string): number {
+    if (!word) return 0;
+    word = word.toLowerCase();
+    if (word.length <= 3) return 1;
+    word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+    word = word.replace(/^y/, '');
+    const matches = word.match(/[aeiouy]{1,2}/g);
+    return matches ? matches.length : 0;
+  }
+
+  // Method to count words in a text
+  private countWords(text: string): number {
+    if (!text.trim()) return 0;
+    return text.trim().split(/\s+/).length;
+  }
+
+  // Method to count sentences in a text
+  private countSentences(text: string): number {
+    if (!text.trim()) return 0;
+    // Split by sentence-ending punctuation. Filter out empty strings that might result from multiple punctuation marks.
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    return sentences.length || 1; // Ensure at least 1 sentence if there's text, to avoid division by zero.
+  }
+
+  async analyzeReadabilityRollercoaster(text: string): Promise<ContractResult<ReadabilityPoint[]>> {
+    try {
+      if (!text || text.trim() === "") {
+        return { success: true, data: [] };
+      }
+
+      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim() !== ""); // Split by one or more empty lines
+      const readabilityPoints: ReadabilityPoint[] = [];
+
+      paragraphs.forEach((paragraph, index) => {
+        const words = this.countWords(paragraph);
+        const sentences = this.countSentences(paragraph);
+        let syllables = 0;
+        paragraph.trim().split(/\s+/).forEach(word => {
+          syllables += this.countSyllables(word);
+        });
+
+        let score = 0;
+        if (words > 0 && sentences > 0) {
+          const wordsPerSentence = words / sentences;
+          const syllablesPerWord = syllables / words;
+          score = 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord;
+        } else if (words > 0) { // Handle case with words but no sentences (e.g. a list) - assign a low score
+          score = 30; // Arbitrary low score for paragraphs without sentences
+        }
+        // If words = 0, score remains 0, which is fine for empty paragraphs (though filtered)
+
+        readabilityPoints.push({
+          paragraphIndex: index,
+          score: Math.round(score * 100) / 100, // Round to two decimal places
+        });
+      });
+
+      return { success: true, data: readabilityPoints, metadata: { paragraphCount: paragraphs.length } };
+    } catch (error) {
+      console.error("Error in analyzeReadabilityRollercoaster:", error);
+      return {
+        success: false,
+        error: `Readability analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
   private static readonly TELLING_PATTERNS = [
     // Emotion telling
     { pattern: /\b(was|felt|seemed|appeared)\s+(angry|sad|happy|excited|nervous|afraid|surprised|confused|worried|frustrated|disappointed|relieved)\b/gi, type: 'emotion' },
