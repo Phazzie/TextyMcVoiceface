@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target } from 'lucide-react';
+// Add Palette icon
+import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, Palette } from 'lucide-react';
 import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue } from '../types/contracts';
+// Import the new component
+import ColorPaletteDisplay from './ColorPaletteDisplay';
 
 interface WritingQualityReportProps {
   report: QualityReportType;
@@ -8,7 +11,8 @@ interface WritingQualityReportProps {
 }
 
 export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose'>('overview');
+  // Add 'color-palette' to activeTab state type
+  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'color-palette'>('overview');
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600 bg-green-100';
@@ -45,11 +49,13 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
           { key: 'overview', label: 'Overview', icon: BookOpen },
           { key: 'show-tell', label: 'Show vs Tell', icon: Eye },
           { key: 'tropes', label: 'Trope Analysis', icon: Target },
-          { key: 'prose', label: 'Prose Quality', icon: Sparkles }
+          { key: 'prose', label: 'Prose Quality', icon: Sparkles },
+          // Add new Color Palette tab
+          { key: 'color-palette', label: 'Color Palette', icon: Palette }
         ].map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => setActiveTab(tab.key as any)} // Using 'as any' to match existing code style for tab keys
             className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
               activeTab === tab.key
                 ? 'bg-white text-blue-600 shadow-md'
@@ -139,10 +145,16 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
       {activeTab === 'prose' && (
         <ProseQualityTab issues={report.purpleProseIssues} originalText={originalText} />
       )}
+
+      {/* Render ColorPaletteDisplay when its tab is active */}
+      {activeTab === 'color-palette' && (
+        <ColorPaletteDisplay /> // Uses mock data by default
+      )}
     </div>
   );
 };
 
+// Existing ShowTellTab, TropeAnalysisTab, ProseQualityTab components remain unchanged
 const ShowTellTab: React.FC<{ issues: ShowTellIssue[]; originalText: string }> = ({ issues }) => {
   if (issues.length === 0) {
     return (
