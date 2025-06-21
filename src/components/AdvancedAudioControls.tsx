@@ -21,16 +21,21 @@ interface AdvancedAudioControlsProps {
   characters: string[];
   onBookmarkJump: (position: number) => void;
   onExportTimestamps: () => void;
+  unreliableNarratorMode: boolean; // New prop
+  onToggleUnreliableNarratorMode: () => void; // New prop
 }
 
 export const AdvancedAudioControls: React.FC<AdvancedAudioControlsProps> = ({
   audioElement,
   characters,
   onBookmarkJump,
-  onExportTimestamps
+  onExportTimestamps,
+  unreliableNarratorMode,
+  onToggleUnreliableNarratorMode,
 }) => {
   const [audioControls] = useState(() => new AudioControlsManager());
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // unreliableNarratorModeEnabled state is managed by App.tsx, passed as prop
   const [playbackSettings, setPlaybackSettings] = useState<PlaybackSettings>({
     speed: 1.0,
     globalVolume: 1.0,
@@ -257,6 +262,26 @@ export const AdvancedAudioControls: React.FC<AdvancedAudioControlsProps> = ({
           >
             <Plus className="w-4 h-4" />
             <span>Add</span>
+          </button>
+        </div>
+
+        {/* Unreliable Narrator Mode Toggle */}
+        <div className="flex items-center justify-between pt-2">
+          <label htmlFor="unreliableNarratorToggle" className="text-sm font-medium text-gray-700 flex-1">
+            Unreliable Narrator Mode <span className="text-xs text-purple-600">(Experimental)</span>
+          </label>
+          <button
+            id="unreliableNarratorToggle"
+            onClick={onToggleUnreliableNarratorMode}
+            className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+              unreliableNarratorMode ? 'bg-purple-600' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-200 ease-in-out ${
+                unreliableNarratorMode ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
       </div>

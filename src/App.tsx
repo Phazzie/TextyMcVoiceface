@@ -12,6 +12,7 @@ import { WritingQualityAnalyzer } from './services/implementations/WritingQualit
 import { AudioControlsManager } from './services/implementations/AudioControlsManager';
 import { VoiceCustomizer as VoiceCustomizerService } from './services/implementations/VoiceCustomizer';
 import { TextEditor } from './services/implementations/TextEditor';
+import { AIEnhancementService } from './services/implementations/AIEnhancementService'; // Added import
 import { ProjectManager as ProjectManagerService } from './services/implementations/ProjectManager';
 import { supabaseService } from './services/implementations/SupabaseService';
 import { secureConfig } from './services/implementations/SecureConfigManager';
@@ -53,6 +54,7 @@ function App() {
   const [initializationStatus, setInitializationStatus] = useState<string>('Initializing...');
   const [authUser, setAuthUser] = useState<User | null>(null); // Added authUser state
   const [authLoading, setAuthLoading] = useState(true); // Added authLoading state
+  const [unreliableNarratorActive, setUnreliableNarratorActive] = useState(false); // New state for Unreliable Narrator Mode
 
   // Initialize services and auth
   useEffect(() => {
@@ -96,6 +98,7 @@ function App() {
       seamManager.registerWritingQualityAnalyzer(new WritingQualityAnalyzer());
       seamManager.registerTextEditor(new TextEditor());
       seamManager.registerProjectManager(new ProjectManagerService());
+      seamManager.registerAIEnhancementService(new AIEnhancementService()); // Added registration
       
       setInitializationStatus('Testing Supabase connection...');
       
@@ -207,54 +210,181 @@ function App() {
       message: 'Starting analysis...'
     });
 
+    const seamManager = SeamManager.getInstance(); // Get SeamManager instance
+
     try {
-      // Start processing audiobook
-      const result = await orchestrator.processStory(text, {
+      // This is a simplified representation. In a full implementation,
+      // `processStory` would internally handle iterating through segments,
+      // calling `analyzeSubtext` if the mode is active, and then
+      // calling `generateSegmentAudio` with the performanceNote.
+      // For this example, I'm showing the conceptual logic placement.
+      // The actual modification might need to be deeper in the SystemOrchestrator
+      // or how it calls the AudioGenerationPipeline.
+
+      // If SystemOrchestrator's processStory is granular enough to take segment-specific notes,
+      // we would prepare them here. Otherwise, we might pass unreliableNarratorActive
+      // as an option to processStory.
+
+      // For demonstration, let's assume processStory is modified or a new method is used.
+      // The current `orchestrator.processStory` doesn't support passing performance notes per segment.
+      // This highlights a potential need to refactor `SystemOrchestrator` or how it uses `IAudioGenerationPipeline`.
+
+      // Placeholder: If orchestrator.processStory could take a callback for notes:
+      /*
+      const getPerformanceNoteForSegment = async (segment: TextSegment) => {
+        if (unreliableNarratorActive) {
+          const aiService = seamManager.getAIEnhancementService();
+          const subtextResult = await aiService.analyzeSubtext(segment.content, originalText);
+          if (subtextResult.success && subtextResult.data) {
+            return subtextResult.data;
+          }
+        }
+        return undefined;
+      };
+      */
+
+      // As `SystemOrchestrator.processStory` is a black box for now,
+      // and doesn't accept per-segment performance notes, we'll pass a general option.
+      // This implies `SystemOrchestrator` itself would need to be aware of this mode
+      // and call `AIEnhancementService.analyzeSubtext` internally before generating each segment.
+      // This is the most realistic approach given the current `ISystemOrchestrator` contract.
+
+      const processingOptions = {
         enableManualCorrection: false,
-        outputFormat: 'mp3',
-        includeQualityAnalysis: true
-      });
+        outputFormat: 'mp3' as 'mp3' | 'wav',
+        includeQualityAnalysis: true,
+        // Add a new option to ProcessingOptions if SystemOrchestrator will handle subtext analysis:
+        unreliableNarratorMode: unreliableNarratorActive,
+        fullTextContext: unreliableNarratorActive ? text : undefined // Pass full text if mode is active
+      };
 
-      if (result.success && result.data) {
-        setAudioOutput(result.data);
-        
-        // Extract characters and voice assignments for display
-        const seamManager = SeamManager.getInstance();
+      // The SystemOrchestrator would then need to be updated:
+      // 1. Accept `unreliableNarratorMode` and `fullTextContext` in its `ProcessingOptions`.
+      // 2. If `unreliableNarratorMode` is true, before calling `audioPipeline.generateSegmentAudio` for each segment,
+      //    it would call `aiEnhancementService.analyzeSubtext(segment.content, fullTextContext)`.
+      // 3. It would then pass the result as `performanceNote` to `audioPipeline.generateSegmentAudio`.
+
+      // For now, we call it as is, and the `performanceNote` logic will not be hit in `ElevenLabsAudioPipeline`
+      // unless `SystemOrchestrator` is internally changed.
+      // This is a limitation of not being able to modify SystemOrchestrator in this step.
+      // However, the plan focuses on App.tsx orchestration.
+
+      // const result = await orchestrator.processStory(text, processingOptions);
+
+      // New logic for App.tsx orchestration if unreliableNarratorActive
+      if (unreliableNarratorActive) {
+        setProcessingStatus({ stage: 'analyzing', progress: 10, message: 'Parsing text for Unreliable Narrator mode...' });
         const textAnalysisEngine = seamManager.getTextAnalysisEngine();
-        const characterDetectionSystem = seamManager.getCharacterDetectionSystem();
-        const voiceAssignmentLogic = seamManager.getVoiceAssignmentLogic();
-
-        // Get segments and characters
         const parseResult = await textAnalysisEngine.parseText(text);
-        if (parseResult.success && parseResult.data) {
-          const charactersResult = await characterDetectionSystem.detectCharacters(parseResult.data);
-          if (charactersResult.success && charactersResult.data) {
-            setCharacters(charactersResult.data);
-            
-            const voiceAssignmentsResult = await voiceAssignmentLogic.assignVoices(charactersResult.data);
-            if (voiceAssignmentsResult.success && voiceAssignmentsResult.data) {
-              setVoiceAssignments(voiceAssignmentsResult.data);
-            }
+
+        if (!parseResult.success || !parseResult.data) {
+          throw new Error(`Text parsing failed: ${parseResult.error || 'Unknown error'}`);
+        }
+        const textSegments = parseResult.data;
+
+        setProcessingStatus({ stage: 'detecting', progress: 20, message: 'Detecting characters...' });
+        const characterDetectionSystem = seamManager.getCharacterDetectionSystem();
+        const charactersResult = await characterDetectionSystem.detectCharacters(textSegments);
+        if (charactersResult.success && charactersResult.data) {
+          setCharacters(charactersResult.data);
+          const voiceAssignmentLogic = seamManager.getVoiceAssignmentLogic();
+          const voiceAssignmentsResult = await voiceAssignmentLogic.assignVoices(charactersResult.data);
+          if (voiceAssignmentsResult.success && voiceAssignmentsResult.data) {
+            setVoiceAssignments(voiceAssignmentsResult.data);
+          }
+        } else {
+          addNotification('Character detection failed. Proceeding without specific voice assignments.', 'warning');
+          setCharacters([]);
+          setVoiceAssignments([]);
+        }
+
+        const audioPipeline = seamManager.getAudioGenerationPipeline();
+        const aiEnhancementService = seamManager.getAIEnhancementService();
+        const generatedAudioSegments: AudioSegment[] = [];
+
+        for (let i = 0; i < textSegments.length; i++) {
+          const segment = textSegments[i];
+          const progress = 30 + Math.round((i / textSegments.length) * 50);
+          setProcessingStatus({ stage: 'generating', progress, message: `Analyzing subtext for segment ${i + 1}/${textSegments.length}...` });
+
+          let performanceNote: string | undefined = undefined;
+          const subtextResult = await aiEnhancementService.analyzeSubtext(segment.content, text);
+          if (subtextResult.success && subtextResult.data) {
+            performanceNote = subtextResult.data;
+            addNotification(`Subtext for segment ${i+1}: ${performanceNote}`, 'info', 2000);
+          } else {
+            addNotification(`Subtext analysis failed for segment ${i+1}: ${subtextResult.error}`, 'warning', 2000);
+          }
+
+          setProcessingStatus({ stage: 'generating', progress, message: `Generating audio for segment ${i + 1}/${textSegments.length} (Note: ${performanceNote || 'N/A'})...` });
+
+          // Find voice for speaker - simplified, assumes 'Narrator' or first character if no specific assignment
+          let voiceProfile = voiceAssignments.find(va => va.character === segment.speaker)?.voice;
+          if (!voiceProfile) { // Fallback voice
+            voiceProfile = { id: 'default-narrator', name: 'Default Narrator', gender: 'neutral', age: 'adult', tone: 'neutral', pitch: 1.0, speed: 1.0 };
+          }
+
+          const audioSegmentResult = await audioPipeline.generateSegmentAudio(segment, voiceProfile, performanceNote);
+
+          if (audioSegmentResult.success && audioSegmentResult.data) {
+            generatedAudioSegments.push(audioSegmentResult.data);
+          } else {
+            throw new Error(`Audio generation failed for segment ${segment.id}: ${audioSegmentResult.error || 'Unknown error'}`);
           }
         }
 
-        // Generate writing quality report
-        const qualityAnalyzer = new WritingQualityAnalyzer();
-        const qualityResult = await qualityAnalyzer.generateQualityReport(text);
-        if (qualityResult.success && qualityResult.data) {
-          setQualityReport(qualityResult.data);
+        setProcessingStatus({ stage: 'generating', progress: 80, message: 'Combining audio segments...' });
+        const combinedAudioResult = await audioPipeline.combineAudioSegments(generatedAudioSegments);
+
+        if (combinedAudioResult.success && combinedAudioResult.data) {
+          setAudioOutput(combinedAudioResult.data);
+        } else {
+          throw new Error(`Failed to combine audio segments: ${combinedAudioResult.error || 'Unknown error'}`);
         }
-        
-        setCurrentStage('complete');
+
       } else {
-        console.error('Processing failed:', result.error);
-         addNotification(`Audiobook processing failed: ${result.error || 'Unknown error'}. Please try again.`, 'error');
-        setCurrentStage('input');
+        // Original path using SystemOrchestrator
+        const result = await orchestrator.processStory(text, processingOptions);
+        if (result.success && result.data) {
+          setAudioOutput(result.data);
+        } else {
+          throw new Error(`Processing failed: ${result.error || 'Unknown error'}`);
+        }
       }
+
+      // Common post-processing (character detection, quality report)
+      // This part might be redundant if already handled in the new path, or needs adjustment
+      const textAnalysisEngine = seamManager.getTextAnalysisEngine();
+      const characterDetectionSystem = seamManager.getCharacterDetectionSystem();
+      const voiceAssignmentLogic = seamManager.getVoiceAssignmentLogic();
+
+      const parseResult = await textAnalysisEngine.parseText(text);
+      if (parseResult.success && parseResult.data && characters.length === 0) { // Only if not set by new path
+        const charResult = await characterDetectionSystem.detectCharacters(parseResult.data);
+        if (charResult.success && charResult.data) {
+          setCharacters(charResult.data);
+          const vaResult = await voiceAssignmentLogic.assignVoices(charResult.data);
+          if (vaResult.success && vaResult.data) {
+            setVoiceAssignments(vaResult.data);
+          }
+        }
+      }
+
+      setProcessingStatus({ stage: 'quality_check', progress: 90, message: 'Generating quality report...' });
+      const qualityAnalyzer = new WritingQualityAnalyzer();
+      const qualityResult = await qualityAnalyzer.generateQualityReport(text);
+      if (qualityResult.success && qualityResult.data) {
+        setQualityReport(qualityResult.data);
+      }
+
+      setCurrentStage('complete');
+      setProcessingStatus({ stage: 'complete', progress: 100, message: 'Processing complete!' });
+
     } catch (error) {
       console.error('Processing error:', error);
-       addNotification(`An unexpected error occurred during processing: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, 'error');
+      addNotification(`An unexpected error occurred during processing: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, 'error');
       setCurrentStage('input');
+      setProcessingStatus({ stage: 'error', progress: 0, message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` });
     }
   };
 
@@ -410,6 +540,11 @@ function App() {
       console.error('Error saving project:', error);
        addNotification(`An unexpected error occurred while saving the project: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, 'error');
     }
+  };
+
+  const handleToggleUnreliableNarratorMode = () => {
+    setUnreliableNarratorActive(prev => !prev);
+    addNotification(`Unreliable Narrator Mode ${!unreliableNarratorActive ? 'enabled' : 'disabled'}.`, 'info');
   };
 
   return (

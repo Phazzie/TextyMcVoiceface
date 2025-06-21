@@ -111,7 +111,7 @@ export interface AudioOutput {
 }
 
 export interface IAudioGenerationPipeline {
-  generateSegmentAudio(segment: TextSegment, voice: VoiceProfile): Promise<ContractResult<AudioSegment>>;
+  generateSegmentAudio(segment: TextSegment, voice: VoiceProfile, performanceNote?: string): Promise<ContractResult<AudioSegment>>;
   combineAudioSegments(segments: AudioSegment[]): Promise<ContractResult<AudioOutput>>;
   optimizeAudio(audioData: Blob): Promise<ContractResult<Blob>>;
 }
@@ -565,6 +565,11 @@ export interface ITextEditor {
   broadcastChange(change: TextChange): Promise<ContractResult<boolean>>;
 }
 
+// AI Enhancement Service Contract
+export interface IAIEnhancementService {
+  analyzeSubtext(text: string, context?: string): Promise<ContractResult<string>>;
+}
+
 // System Orchestration Seam Contracts
 export interface ProcessingStatus {
   stage: 'analyzing' | 'detecting' | 'assigning' | 'generating' | 'quality_check' | 'complete' | 'error';
@@ -580,6 +585,8 @@ export interface ProcessingOptions {
   includeQualityAnalysis?: boolean;
   mode?: IProcessingMode; // New narrator mode option
   narratorConfig?: INarratorModeConfig; // Narrator mode configuration
+  unreliableNarratorMode?: boolean; // Added for unreliable narrator
+  fullTextContext?: string; // Added for unreliable narrator context
 }
 
 export interface ISystemOrchestrator {

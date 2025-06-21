@@ -73,7 +73,11 @@ export class ElevenLabsAudioPipeline implements IAudioGenerationPipeline {
     }
   }
 
-  async generateSegmentAudio(segment: TextSegment, voice: VoiceProfile): Promise<ContractResult<AudioSegment>> {
+  async generateSegmentAudio(
+    segment: TextSegment,
+    voice: VoiceProfile,
+    performanceNote?: string
+  ): Promise<ContractResult<AudioSegment>> {
     try {
       if (!this.config.apiKey) {
         throw new Error('ElevenLabs API key not configured');
@@ -88,8 +92,58 @@ export class ElevenLabsAudioPipeline implements IAudioGenerationPipeline {
       // Prepare text with SSML for better control
       const processedText = this.addSSMLTags(segment.content, voice, segment.type);
 
+      // Determine voice settings based on performance note
+      let voiceSettings = {
+        stability: this.config.stability,
+        similarity_boost: this.config.similarity_boost,
+        style: this.config.style,
+        use_speaker_boost: this.config.use_speaker_boost,
+      };
+
+      if (performanceNote) {
+        console.log(`Applying performance note: ${performanceNote} to segment: ${segment.id}`);
+        switch (performanceNote.toLowerCase()) {
+          case 'deception':
+            voiceSettings.stability = Math.min(1, this.config.stability + 0.15); // More controlled
+            voiceSettings.style = Math.max(0, this.config.style - 0.1); // Less exaggerated
+            break;
+          case 'nervousness':
+            voiceSettings.stability = Math.min(1, this.config.stability + 0.2); // More stable, perhaps a bit monotone
+            voiceSettings.similarity_boost = Math.min(1, this.config.similarity_boost + 0.1);
+            // Potentially add slight speed increase or pitch variation via SSML if more control is needed
+            break;
+          case 'excitement':
+            voiceSettings.stability = Math.max(0, this.config.stability - 0.15); // More variable
+            voiceSettings.style = Math.min(1, this.config.style + 0.2); // More exaggerated
+            break;
+          case 'fearful':
+            voiceSettings.stability = Math.min(1, this.config.stability + 0.1);
+            // Consider SSML for breathiness or trembling if API supports advanced SSML interpretation
+            voiceSettings.style = Math.max(0, this.config.style - 0.05);
+            break;
+          case 'joyful':
+            voiceSettings.stability = Math.max(0, this.config.stability - 0.1);
+            voiceSettings.style = Math.min(1, this.config.style + 0.15);
+            break;
+          case 'sarcasm':
+             // Sarcasm is tricky. Might involve specific intonation not easily controlled by these parameters.
+             // Could try a slightly more exaggerated style and a bit less stability.
+            voiceSettings.style = Math.min(1, this.config.style + 0.1);
+            voiceSettings.stability = Math.max(0, this.config.stability - 0.05);
+            break;
+          // Default: 'neutral' or unknown notes will use the base config settings
+          default:
+            // Use default settings from this.config
+            break;
+        }
+        // Clamp values to be within ElevenLabs' expected ranges (typically 0 to 1)
+        voiceSettings.stability = Math.max(0, Math.min(1, voiceSettings.stability));
+        voiceSettings.similarity_boost = Math.max(0, Math.min(1, voiceSettings.similarity_boost));
+        voiceSettings.style = Math.max(0, Math.min(1, voiceSettings.style));
+      }
+
       // Generate audio using ElevenLabs API
-      const audioBlob = await this.callElevenLabsAPI(processedText, elevenLabsVoice, voice);
+      const audioBlob = await this.callElevenLabsAPI(processedText, elevenLabsVoice, voiceSettings);
       const duration = await this.estimateAudioDuration(processedText);
 
       const audioSegment: AudioSegment = {
@@ -287,7 +341,16 @@ export class ElevenLabsAudioPipeline implements IAudioGenerationPipeline {
     return processedText;
   }
 
-  private async callElevenLabsAPI(text: string, voice: ElevenLabsVoice, voiceProfile: VoiceProfile): Promise<Blob> {
+  private async callElevenLabsAPI(
+    text: string,
+    voice: ElevenLabsVoice,
+    voiceSettings: { // Updated parameter type
+      stability: number;
+      similarity_boost: number;
+      style: number;
+      use_speaker_boost: boolean;
+    }
+  ): Promise<Blob> {
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice.voice_id}`, {
       method: 'POST',
       headers: {
@@ -298,12 +361,7 @@ export class ElevenLabsAudioPipeline implements IAudioGenerationPipeline {
       body: JSON.stringify({
         text: text,
         model_id: this.config.model,
-        voice_settings: {
-          stability: this.config.stability,
-          similarity_boost: this.config.similarity_boost,
-          style: this.config.style,
-          use_speaker_boost: this.config.use_speaker_boost
-        }
+        voice_settings: voiceSettings // Use the passed voiceSettings
       })
     });
 
