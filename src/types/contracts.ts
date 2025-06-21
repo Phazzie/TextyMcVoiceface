@@ -565,6 +565,18 @@ export interface ITextEditor {
   broadcastChange(change: TextChange): Promise<ContractResult<boolean>>;
 }
 
+// AI Enhancement Seam Contracts
+export interface LiteraryDeviceInstance {
+  deviceType: 'Metaphor' | 'Simile' | 'Analogy' | 'Personification' | 'Anthropomorphism' | 'Zoomorphism' | 'Allegory' | 'Juxtaposition' | 'Alliteration' | 'Assonance' | 'Consonance' | 'Onomatopoeia' | 'Cacophony' | 'Euphony' | 'Sibilance' | 'Hyperbole' | 'Understatement' | 'Paradox' | 'Oxymoron' | 'Irony' | 'Foreshadowing' | 'Flashback' | 'Anaphora' | 'Epistrophe' | 'Polysyndeton' | 'Asyndeton' | 'ChekhovsGun' | 'InMediasRes' | 'Imagery' | 'Symbolism' | 'Motif' | 'PatheticFallacy' | 'Metonymy' | 'Synecdoche' | 'Apostrophe' | 'Allusion' | 'Euphemism' | 'Pun';
+  textSnippet: string;
+  explanation: string;
+  position: number;
+}
+
+export interface IAIEnhancementService {
+  analyzeLiteraryDevices(text: string): Promise<ContractResult<LiteraryDeviceInstance[]>>;
+}
+
 // System Orchestration Seam Contracts
 export interface ProcessingStatus {
   stage: 'analyzing' | 'detecting' | 'assigning' | 'generating' | 'quality_check' | 'complete' | 'error';

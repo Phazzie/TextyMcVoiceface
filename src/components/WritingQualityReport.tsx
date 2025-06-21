@@ -1,14 +1,58 @@
-import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target } from 'lucide-react';
-import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue } from '../types/contracts';
+import React, { useState, useEffect } from 'react';
+import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, Zap } from 'lucide-react'; // Added Zap for Literary Devices
+import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, LiteraryDeviceInstance } from '../types/contracts';
+import LiteraryDeviceReport from './LiteraryDeviceReport'; // Import the new component
+import { SeamManager } from '../services/SeamManager'; // To potentially fetch devices
+import { AIEnhancementService } from '../services/implementations/AIEnhancementService'; // For mock/actual service call
 
 interface WritingQualityReportProps {
   report: QualityReportType;
   originalText: string;
+  // literaryDevices?: LiteraryDeviceInstance[]; // Optional: pass devices directly
 }
 
+// Mock data for literary devices (can be replaced with actual data fetching)
+const mockLiteraryDevices: LiteraryDeviceInstance[] = [
+  { deviceType: 'Metaphor', textSnippet: "Her eyes were pools of the deepest blue.", explanation: "Compares eyes to pools without using 'like' or 'as'.", position: 10 },
+  { deviceType: 'Simile', textSnippet: "He runs like the wind.", explanation: "Compares running speed to wind using 'like'.", position: 50 },
+  { deviceType: 'Alliteration', textSnippet: "Silly snakes slither silently.", explanation: "Repetition of the 's' sound.", position: 100 },
+];
+
 export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'literary-devices'>('overview');
+  const [literaryDevices, setLiteraryDevices] = useState<LiteraryDeviceInstance[]>(mockLiteraryDevices); // Initialize with mock
+  const [isLoadingLiteraryDevices, setIsLoadingLiteraryDevices] = useState(false);
+
+  // Simulate fetching literary devices - in a real app, this might be triggered by originalText change or a button
+  useEffect(() => {
+    const fetchDevices = async () => {
+      setIsLoadingLiteraryDevices(true);
+      // In a real app, you might get the service from SeamManager
+      // const seam = SeamManager.getInstance();
+      // const aiService = seam.getAIEnhancementService();
+      // For now, directly instantiate, or use a stub if SeamManager is not fully set up
+      const aiService = new AIEnhancementService();
+      const result = await aiService.analyzeLiteraryDevices(originalText);
+      if (result.success && result.data) {
+        setLiteraryDevices(result.data);
+      } else {
+        console.error("Failed to fetch literary devices:", result.error);
+        setLiteraryDevices(mockLiteraryDevices); // Fallback to mock on error
+      }
+      setIsLoadingLiteraryDevices(false);
+    };
+
+    if (originalText) { // Fetch devices if text is available
+      // To prevent fetching on every render if originalText is stable, add more conditions or trigger manually
+      // For this example, let's assume we want to fetch/refresh if the report component is displayed with text
+      // fetchDevices(); // Uncomment this to enable API call
+    }
+    // Set mock data immediately for UI development if API call is commented out
+    setLiteraryDevices(mockLiteraryDevices);
+
+
+  }, [originalText]); // Re-fetch if originalText changes
+
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600 bg-green-100';
@@ -45,7 +89,8 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
           { key: 'overview', label: 'Overview', icon: BookOpen },
           { key: 'show-tell', label: 'Show vs Tell', icon: Eye },
           { key: 'tropes', label: 'Trope Analysis', icon: Target },
-          { key: 'prose', label: 'Prose Quality', icon: Sparkles }
+          { key: 'prose', label: 'Prose Quality', icon: Sparkles },
+          { key: 'literary-devices', label: 'Literary Devices', icon: Zap } // New Tab
         ].map((tab) => (
           <button
             key={tab.key}
@@ -138,6 +183,18 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
 
       {activeTab === 'prose' && (
         <ProseQualityTab issues={report.purpleProseIssues} originalText={originalText} />
+      )}
+
+      {activeTab === 'literary-devices' && (
+        isLoadingLiteraryDevices ? (
+          <div className="text-center py-12">
+            <Zap className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-pulse" />
+            <h4 className="text-xl font-semibold text-gray-800 mb-2">Scanning for Literary Devices...</h4>
+            <p className="text-gray-600">This may take a moment.</p>
+          </div>
+        ) : (
+          <LiteraryDeviceReport devices={literaryDevices} />
+        )
       )}
     </div>
   );
