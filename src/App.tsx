@@ -13,6 +13,7 @@ import { AudioControlsManager } from './services/implementations/AudioControlsMa
 import { VoiceCustomizer as VoiceCustomizerService } from './services/implementations/VoiceCustomizer';
 import { TextEditor } from './services/implementations/TextEditor';
 import { ProjectManager as ProjectManagerService } from './services/implementations/ProjectManager';
+import { AIEnhancementService } from './services/implementations/AIEnhancementService'; // Added AIEnhancementService
 import { supabaseService } from './services/implementations/SupabaseService';
 import { secureConfig } from './services/implementations/SecureConfigManager';
 import { AuthPage } from './components/AuthPage'; // Added AuthPage import
@@ -25,7 +26,8 @@ import { WritingQualityReport } from './components/WritingQualityReport';
 import { ProgressDashboard } from './components/ProgressDashboard';
 import { VoiceCustomizer } from './components/VoiceCustomizer';
 import { ProjectManager } from './components/ProjectManager';
-import { ProcessingStatus as ProcessingStatusType, AudioOutput, Character, VoiceAssignment, WritingQualityReport as QualityReportType, VoiceProfile, StoryProject } from './types/contracts';
+import { ActorsStudio } from './components/ActorsStudio'; // Import ActorsStudio
+import { ProcessingStatus as ProcessingStatusType, AudioOutput, Character, VoiceAssignment, WritingQualityReport as QualityReportType, VoiceProfile, StoryProject, TextSegment } from './types/contracts';
 import { NotificationProvider } from './contexts/NotificationContext';
 import NotificationsContainer from './components/NotificationsContainer';
 import { useNotifier } from './hooks/useNotifier';
@@ -46,7 +48,7 @@ function App() {
   const [orchestrator, setOrchestrator] = useState<SystemOrchestrator | null>(null);
   const [showElevenLabsSetup, setShowElevenLabsSetup] = useState(false);
   const [useElevenLabs, setUseElevenLabs] = useState(false);
-  const [activeView, setActiveView] = useState<'audiobook' | 'analysis' | 'progress' | 'voices'>('audiobook');
+  const [activeView, setActiveView] = useState<'audiobook' | 'analysis' | 'progress' | 'voices' | 'actorsStudio'>('audiobook'); // Added 'actorsStudio' view
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [currentProject, setCurrentProject] = useState<StoryProject | null>(null);
   const [supabaseConnected, setSupabaseConnected] = useState(false);
@@ -96,6 +98,7 @@ function App() {
       seamManager.registerWritingQualityAnalyzer(new WritingQualityAnalyzer());
       seamManager.registerTextEditor(new TextEditor());
       seamManager.registerProjectManager(new ProjectManagerService());
+      seamManager.registerAIEnhancementService(new AIEnhancementService()); // Added AIEnhancementService registration
       
       setInitializationStatus('Testing Supabase connection...');
       
@@ -412,6 +415,125 @@ function App() {
     }
   };
 
+  // Placeholder for actual character voice profiles if not using ElevenLabs
+  const getDefaultVoiceProfile = (gender: 'male' | 'female' | 'neutral' = 'neutral'): VoiceProfile => ({
+    id: `default-${gender}-${Date.now()}`,
+    name: `Default ${gender}`,
+    gender: gender,
+    age: 'adult',
+    tone: 'neutral',
+    pitch: 1.0, // Default pitch
+    speed: 1.0, // Default speed
+  });
+
+  const handleStartTableRead = async (sceneText: string, castingChoices: Record<string, string>) => {
+    addNotification("Starting table read...", "info");
+    const seamManager = SeamManager.getInstance();
+    const aiEnhancementService = seamManager.getAIEnhancementService();
+    const audioPipeline = seamManager.getAudioGenerationPipeline();
+    const textAnalysisEngine = seamManager.getTextAnalysisEngine();
+
+    try {
+      // 1. Get Director's Notes
+      const directorNotesResult = await aiEnhancementService.getDirectorNotes(sceneText);
+      if (!directorNotesResult.success || !directorNotesResult.data) {
+        addNotification(`Error getting director's notes: ${directorNotesResult.error}`, "error");
+        return;
+      }
+      const directorNote = directorNotesResult.data;
+      addNotification(`Director: ${directorNote}`, "info");
+
+      // 2. Speak Director's Note
+      const directorSegment: TextSegment = {
+        id: 'director-note',
+        content: directorNote,
+        speaker: 'Director', // Special speaker name
+        type: 'narration',
+        startPosition: 0,
+        endPosition: directorNote.length,
+      };
+      // Use a default voice for the director for now
+      const directorVoice = getDefaultVoiceProfile('male');
+      let audioSegmentResult = await audioPipeline.generateSegmentAudio(directorSegment, directorVoice);
+
+      if (!audioSegmentResult.success || !audioSegmentResult.data) {
+        addNotification(`Error generating audio for director's note: ${audioSegmentResult.error}`, "error");
+        return;
+      }
+      // This is a simplified playback. In a real app, you'd queue and manage audio playback more robustly.
+      // For now, we'll assume generateSegmentAudio can produce something playable or we adapt.
+      // The current IAudioGenerationPipeline contract returns a Blob. We need to play this blob.
+      // Let's create a temporary audio element to play the blob.
+      const playAudioBlob = (blob: Blob) => {
+        return new Promise<void>((resolve, reject) => {
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = new Audio(audioUrl);
+          audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            resolve();
+          };
+          audio.onerror = (e) => {
+            URL.revokeObjectURL(audioUrl);
+            addNotification("Error playing audio.", "error");
+            reject(e);
+          };
+          audio.play();
+        });
+      };
+      await playAudioBlob(audioSegmentResult.data.audioData);
+
+      // 3. Parse scene into dialogue segments
+      const segmentsResult = await textAnalysisEngine.parseText(sceneText);
+      if (!segmentsResult.success || !segmentsResult.data) {
+        addNotification(`Error parsing scene text: ${segmentsResult.error}`, "error");
+        return;
+      }
+      const dialogueSegments = segmentsResult.data.filter(seg => seg.type === 'dialogue' && seg.speaker !== 'narrator');
+
+      // 4. Loop through dialogue segments
+      for (const segment of dialogueSegments) {
+        const characterName = segment.speaker;
+        const actorArchetype = castingChoices[characterName];
+
+        if (!actorArchetype) {
+          addNotification(`No archetype found for character: ${characterName}. Skipping line.`, "warning");
+          continue;
+        }
+
+        // 5. Get Interpreted Line
+        const interpretedLineResult = await aiEnhancementService.getInterpretedLine(segment.content, characterName, actorArchetype);
+        if (!interpretedLineResult.success || !interpretedLineResult.data) {
+          addNotification(`Error getting interpreted line for ${characterName}: ${interpretedLineResult.error}`, "error");
+          continue;
+        }
+        const interpretedLine = interpretedLineResult.data;
+        addNotification(`${characterName} (${actorArchetype}): ${interpretedLine}`, "info");
+
+        // 6. Speak Interpreted Line
+        const characterTextSegment: TextSegment = {
+          ...segment, // Reuse most of the original segment data
+          content: interpretedLine, // Use the AI interpreted line
+        };
+
+        // Find voice assignment or use default
+        const assignedVoice = voiceAssignments.find(va => va.character === characterName)?.voice || getDefaultVoiceProfile();
+
+        audioSegmentResult = await audioPipeline.generateSegmentAudio(characterTextSegment, assignedVoice);
+        if (!audioSegmentResult.success || !audioSegmentResult.data) {
+          addNotification(`Error generating audio for ${characterName}: ${audioSegmentResult.error}`, "error");
+          continue;
+        }
+        await playAudioBlob(audioSegmentResult.data.audioData);
+      }
+
+      addNotification("Table read finished!", "success");
+
+    } catch (error) {
+      console.error("Error during table read:", error);
+      addNotification(`An unexpected error occurred during table read: ${error instanceof Error ? error.message : 'Unknown error'}`, "error");
+    }
+  };
+
   return (
     <NotificationProvider>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -519,17 +641,37 @@ function App() {
                       </button>
                     </>
                   )}
-                  <button
-                    onClick={() => setActiveView('progress')}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 flex items-center space-x-2 ${
-                      activeView === 'progress'
-                        ? 'bg-orange-500 text-white shadow-md'
-                        : 'text-orange-600 hover:bg-orange-50'
-                    }`}
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    <span>Progress</span>
-                  </button>
+                  {/* Actors Studio Button - visible when text is available (i.e. processing not active, or complete) */}
+                  {(currentStage === 'input' && originalText) || currentStage === 'complete' ? (
+                    <button
+                      onClick={() => setActiveView('actorsStudio')}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 flex items-center space-x-2 ${
+                        activeView === 'actorsStudio'
+                          ? 'bg-teal-500 text-white shadow-md'
+                          : 'text-teal-600 hover:bg-teal-50'
+                      }`}
+                    >
+                      <Mic className="w-4 h-4" /> {/* Re-using Mic icon, consider a specific one if available */}
+                      <span>AI Actors</span>
+                    </button>
+                  ) : null}
+
+                  {/* This progress button seems duplicated, let's ensure it's only shown once or in the correct context */}
+                  {/* The above block already includes a progress button if currentStage === 'complete' */}
+                  {/* If this one is for a different scenario, it needs clarification. Assuming it's a general toggle: */}
+                  {currentStage !== 'processing' && (
+                    <button
+                        onClick={() => setActiveView('progress')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 flex items-center space-x-2 ${
+                          activeView === 'progress'
+                            ? 'bg-orange-500 text-white shadow-md'
+                            : 'text-orange-600 hover:bg-orange-50'
+                        }`}
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        <span>Progress</span>
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -703,6 +845,14 @@ function App() {
 
         {activeView === 'progress' && (
           <ProgressDashboard />
+        )}
+
+        {activeView === 'actorsStudio' && (
+          <ActorsStudio
+            sceneText={originalText}
+            characters={characters} // Pass detected characters
+            onStartTableRead={handleStartTableRead}
+          />
         )}
       </main>
 
