@@ -1,13 +1,43 @@
 import { 
   IWritingQualityAnalyzer, 
   ContractResult, 
-  ShowTellIssue, 
-  TropeMatch, 
-  PurpleProseIssue, 
-  WritingQualityReport 
+  ShowTellIssue,
+  TropeMatch,
+  PurpleProseIssue,
+  WritingQualityReport,
+  EchoChamberResult,
+  TextSegment,
 } from '../../types/contracts';
+import { TextAnalysisEngine } from '../TextAnalysisEngine';
 
 export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
+  private static readonly STOP_WORDS: string[] = [
+    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
+    "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being",
+    "below", "between", "both", "but", "by", "can't", "cannot", "could", "couldn't",
+    "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during",
+    "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't",
+    "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here",
+    "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i",
+    "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's",
+    "its", "itself", "let's", "me", "more", "most", "mustn't", "my", "myself",
+    "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought",
+    "our", "ours", "ourselves", "out", "over", "own", "same", "shan't", "she",
+    "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such",
+    "than", "that", "that's", "the", "their", "theirs", "them", "themselves",
+    "then", "there", "there's", "these", "they", "they'd", "they'll", "they're",
+    "they've", "this", "those", "through", "to", "too", "under", "until", "up",
+    "very", "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were",
+    "weren't", "what", "what's", "when", "when's", "where", "where's", "which",
+    "while", "who", "who's", "whom", "why", "why's", "with", "won't", "would",
+    "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours",
+    "yourself", "yourselves",
+    // Common contractions often missed
+    "ain't", "gonna", "wanna",
+    // Single letters that might appear after tokenization if not handled well by regex, though current regex \W+ should prevent most.
+    "b", "c", "d", "e", "f", "g", "h", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
+  ];
+  private textAnalysisEngine = new TextAnalysisEngine();
   private static readonly TELLING_PATTERNS = [
     // Emotion telling
     { pattern: /\b(was|felt|seemed|appeared)\s+(angry|sad|happy|excited|nervous|afraid|surprised|confused|worried|frustrated|disappointed|relieved)\b/gi, type: 'emotion' },
@@ -406,5 +436,86 @@ export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
     const ratio = weightedIssues / (wordCount / 100); // Weighted issues per 100 words
     
     return Math.max(0, Math.min(100, 100 - (ratio * 15)));
+  }
+
+  async detectEchoChamber(text: string): Promise<ContractResult<EchoChamberResult[]>> {
+    try {
+      const segmentsResult = await this.textAnalysisEngine.parseText(text);
+      if (!segmentsResult.success || !segmentsResult.data) {
+        return { success: false, error: segmentsResult.error || "Failed to parse text for echo chamber detection." };
+      }
+
+      const dialogueSegments = segmentsResult.data.filter(
+        (segment): segment is TextSegment & { speaker: string } => // Type guard
+          segment.type === 'dialogue' &&
+          typeof segment.speaker === 'string' && // Ensure speaker is a string
+          segment.speaker.trim() !== '' && // Ensure speaker is not empty
+          segment.speaker !== 'Narrator'
+      );
+
+      if (dialogueSegments.length === 0) {
+        return { success: true, data: [] }; // No dialogue, so no echo chamber
+      }
+
+      const characterWordCounts = new Map<string, Map<string, number>>();
+
+      for (const segment of dialogueSegments) {
+        const speaker = segment.speaker;
+        const words = segment.content
+          .toLowerCase()
+          .split(/\W+/) // Split by non-alphanumeric characters
+          .filter(word => word.length > 0); // Remove empty strings
+
+        if (!characterWordCounts.has(speaker)) {
+          characterWordCounts.set(speaker, new Map<string, number>());
+        }
+        const speakerWordMap = characterWordCounts.get(speaker)!;
+
+        for (const word of words) {
+          if (!WritingQualityAnalyzer.STOP_WORDS.includes(word)) {
+            speakerWordMap.set(word, (speakerWordMap.get(word) || 0) + 1);
+          }
+        }
+      }
+
+      const echoedWordsRaw = new Map<string, { frequency: number; characters: Set<string> }>();
+
+      for (const [character, wordMap] of characterWordCounts) {
+        for (const [word, count] of wordMap) {
+          if (!echoedWordsRaw.has(word)) {
+            echoedWordsRaw.set(word, { frequency: 0, characters: new Set<string>() });
+          }
+          const currentWordData = echoedWordsRaw.get(word)!;
+          currentWordData.frequency += count;
+          currentWordData.characters.add(character);
+        }
+      }
+
+      const echoChamberResultsArray: EchoChamberResult[] = [];
+      for (const [word, data] of echoedWordsRaw) {
+        if (data.characters.size > 1) { // Word used by more than one character
+          echoChamberResultsArray.push({
+            word,
+            frequency: data.frequency,
+            characters: Array.from(data.characters),
+          });
+        }
+      }
+
+      // Sort by frequency (descending) then by word (ascending)
+      echoChamberResultsArray.sort((a, b) => {
+        if (b.frequency !== a.frequency) {
+          return b.frequency - a.frequency;
+        }
+        return a.word.localeCompare(b.word);
+      });
+
+      return { success: true, data: echoChamberResultsArray };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Echo chamber detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
   }
 }
