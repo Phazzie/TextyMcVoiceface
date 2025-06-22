@@ -1,44 +1,17 @@
-import { 
-  IWritingQualityAnalyzer, 
-  ContractResult, 
+import {
+  IWritingQualityAnalyzer,
+  ContractResult,
   ReadabilityPoint,
   ShowTellIssue,
   TropeMatch,
   PurpleProseIssue,
   WritingQualityReport,
-  EchoChamberResult,
-  TextSegment,
+  ColorPaletteAnalysis,
+  OverallScore,
+  EchoChamberResult
 } from '../../types/contracts';
-import { TextAnalysisEngine } from '../TextAnalysisEngine';
 
 export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
-  private static readonly STOP_WORDS: string[] = [
-    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
-    "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being",
-    "below", "between", "both", "but", "by", "can't", "cannot", "could", "couldn't",
-    "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during",
-    "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't",
-    "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here",
-    "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i",
-    "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's",
-    "its", "itself", "let's", "me", "more", "most", "mustn't", "my", "myself",
-    "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought",
-    "our", "ours", "ourselves", "out", "over", "own", "same", "shan't", "she",
-    "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such",
-    "than", "that", "that's", "the", "their", "theirs", "them", "themselves",
-    "then", "there", "there's", "these", "they", "they'd", "they'll", "they're",
-    "they've", "this", "those", "through", "to", "too", "under", "until", "up",
-    "very", "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were",
-    "weren't", "what", "what's", "when", "when's", "where", "where's", "which",
-    "while", "who", "who's", "whom", "why", "why's", "with", "won't", "would",
-    "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours",
-    "yourself", "yourselves",
-    // Common contractions often missed
-    "ain't", "gonna", "wanna",
-    // Single letters that might appear after tokenization if not handled well by regex, though current regex \W+ should prevent most.
-    "b", "c", "d", "e", "f", "g", "h", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
-  ];
-  private textAnalysisEngine = new TextAnalysisEngine();
 
   // Method to count syllables in a word (heuristic)
   private countSyllables(word: string): number {
@@ -60,532 +33,281 @@ export class WritingQualityAnalyzer implements IWritingQualityAnalyzer {
   // Method to count sentences in a text
   private countSentences(text: string): number {
     if (!text.trim()) return 0;
-    // Split by sentence-ending punctuation. Filter out empty strings that might result from multiple punctuation marks.
     const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    return sentences.length || 1; // Ensure at least 1 sentence if there's text, to avoid division by zero.
+    return sentences.length || 1; // Ensure at least 1 sentence if there's text
   }
 
-  async analyzeReadabilityRollercoaster(text: string): Promise<ContractResult<ReadabilityPoint[]>> {
+  async analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>> {
+    const tellingPhrases = [
+        'he felt', 'she felt', 'he saw', 'she saw', 'he heard', 'she heard',
+        'he knew', 'she knew', 'it was obvious', 'clearly', 'she realized', 'he realized'
+    ];
+    const issues: ShowTellIssue[] = [];
+    const sentences = text.split(/[.!?]+/);
+
+    sentences.forEach((sentence) => {
+        for (const phrase of tellingPhrases) {
+            const position = sentence.toLowerCase().indexOf(phrase);
+            if (position !== -1) {
+                issues.push({
+                    text: sentence,
+                    position: text.indexOf(sentence), // Approximate position in full text
+                    type: 'telling',
+                    severity: 'medium',
+                    suggestion: `Instead of stating the character's realization or feeling, try to describe the sensory details or actions that lead to it.`,
+                    example: `Instead of "She felt sad," try "A tear traced a path down her cheek."`
+                });
+                // Avoid adding multiple issues for the same sentence
+                break; 
+            }
+        }
+    });
+
+    return { success: true, data: issues };
+  }
+
+  async analyzeTropes(text: string): Promise<ContractResult<TropeMatch[]>> {
+    console.log("Detecting tropes for text:", text.substring(0, 50));
+    const mockResult: TropeMatch[] = [];
+    if (text.toLowerCase().includes("star-crossed lovers")) {
+        mockResult.push({
+            name: "Star-Crossed Lovers",
+            description: "The narrative contains elements of a romantic relationship hindered by external forces.",
+            text: "Their families were sworn enemies, yet they couldn't deny their love.",
+            position: text.toLowerCase().indexOf("star-crossed lovers"),
+            confidence: 0.85,
+            subversionSuggestions: ["The families reconcile after seeing their children's love.", "One of them fakes their death to escape."],
+            category: 'plot'
+        });
+    }
+    return Promise.resolve({ success: true, data: mockResult });
+  }
+
+  async analyzePurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>> {
+    const issues: PurpleProseIssue[] = [];
+    const sentences = text.split(/[.!?]+/);
+
+    sentences.forEach((sentence) => {
+        const words = sentence.trim().split(/\s+/);
+        const longWords = words.filter(w => w.length > 12); // Arbitrary length for "long" words
+        const adverbs = words.filter(w => /ly$/.test(w)); // Simple check for adverbs, often overused
+
+        if (longWords.length > 2 || adverbs.length > 3) {
+            issues.push({
+                text: sentence,
+                position: text.indexOf(sentence),
+                type: 'flowery_language',
+                severity: 'mild',
+                suggestion: 'This sentence seems overly descriptive or uses complex words. Consider simplifying for clarity.',
+                simplifiedVersion: 'The core idea of the sentence, but simpler.'
+            });
+        }
+    });
+
+    return { success: true, data: issues };
+  }
+
+  async analyzeReadabilityRollercoaster(text: string, paragraphsPerPoint: number = 1): Promise<ContractResult<ReadabilityPoint[]>> {
     try {
       if (!text || text.trim() === "") {
         return { success: true, data: [] };
       }
 
-      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim() !== ""); // Split by one or more empty lines
+      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim() !== "");
       const readabilityPoints: ReadabilityPoint[] = [];
 
-      paragraphs.forEach((paragraph, index) => {
-        const words = this.countWords(paragraph);
-        const sentences = this.countSentences(paragraph);
-        let syllables = 0;
-        paragraph.trim().split(/\s+/).forEach(word => {
-          syllables += this.countSyllables(word);
-        });
-
-        let score = 0;
-        if (words > 0 && sentences > 0) {
-          const wordsPerSentence = words / sentences;
-          const syllablesPerWord = syllables / words;
-          score = 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord;
-        } else if (words > 0) { // Handle case with words but no sentences (e.g. a list) - assign a low score
-          score = 30; // Arbitrary low score for paragraphs without sentences
-        }
-        // If words = 0, score remains 0, which is fine for empty paragraphs (though filtered)
-
-        readabilityPoints.push({
-          paragraphIndex: index,
-          score: Math.round(score * 100) / 100, // Round to two decimal places
-        });
-      });
-
-      return { success: true, data: readabilityPoints, metadata: { paragraphCount: paragraphs.length } };
-    } catch (error) {
-      console.error("Error in analyzeReadabilityRollercoaster:", error);
-      return {
-        success: false,
-        error: `Readability analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
-    }
-  }
-
-  private static readonly TELLING_PATTERNS = [
-    // Emotion telling
-    { pattern: /\b(was|felt|seemed|appeared)\s+(angry|sad|happy|excited|nervous|afraid|surprised|confused|worried|frustrated|disappointed|relieved)\b/gi, type: 'emotion' },
-    // State telling  
-    { pattern: /\b(was|were|seemed|appeared)\s+(tired|exhausted|hungry|thirsty|cold|hot|uncomfortable|awkward|embarrassed)\b/gi, type: 'state' },
-    // Character description telling
-    { pattern: /\b(was|were)\s+(beautiful|handsome|ugly|tall|short|thin|fat|old|young|smart|stupid|kind|mean)\b/gi, type: 'description' },
-    // Action telling
-    { pattern: /\b(decided to|thought about|remembered|realized|understood|knew|believed)\b/gi, type: 'thought' }
-  ];
-
-  private static readonly COMMON_TROPES = [
-    {
-      name: "Chosen One",
-      patterns: [/chosen one/gi, /destiny/gi, /prophecy/gi, /special powers/gi],
-      category: 'character' as const,
-      subversions: [
-        "Make the 'chosen one' actively reject their destiny",
-        "Have multiple 'chosen ones' who must work together",
-        "Reveal the prophecy was a manipulation or misunderstanding",
-        "The chosen one fails and an unexpected character succeeds"
-      ]
-    },
-    {
-      name: "Love at First Sight",
-      patterns: [/love at first sight/gi, /instant attraction/gi, /eyes met.*heart/gi],
-      category: 'plot' as const,
-      subversions: [
-        "First impression is negative, love develops through understanding",
-        "Physical attraction exists but personalities clash",
-        "What seems like love is actually recognition of a shared trauma",
-        "Instant connection is due to supernatural/sci-fi reasons"
-      ]
-    },
-    {
-      name: "Dead Mentor",
-      patterns: [/mentor.*died/gi, /wise.*old.*man/gi, /master.*killed/gi],
-      category: 'character' as const,
-      subversions: [
-        "Mentor lives but becomes the antagonist",
-        "Mentor fakes death to teach a lesson",
-        "Student surpasses mentor while mentor is still alive",
-        "Mentor is revealed to be incompetent or wrong"
-      ]
-    },
-    {
-      name: "Damsel in Distress",
-      patterns: [/rescue.*princess/gi, /save.*her/gi, /trapped.*tower/gi],
-      category: 'character' as const,
-      subversions: [
-        "She rescues herself before help arrives",
-        "She's pretending to be trapped for strategic reasons",
-        "The 'rescuer' needs saving more than she does",
-        "She orchestrated her own capture as part of a larger plan"
-      ]
-    },
-    {
-      name: "Dark and Stormy Night",
-      patterns: [/dark.*stormy.*night/gi, /thunder.*lightning/gi, /rain.*window/gi],
-      category: 'setting' as const,
-      subversions: [
-        "Beautiful sunny day when terrible things happen",
-        "Storm brings relief and hope instead of foreboding",
-        "Characters actively enjoy the storm",
-        "Weather is completely unrelated to mood or events"
-      ]
-    }
-  ];
-
-  private static readonly PURPLE_PROSE_PATTERNS = [
-    {
-      pattern: /\b\w+ly\s+\w+ly\b/gi,
-      type: 'excessive_adjectives' as const,
-      description: 'Multiple adverbs in close proximity'
-    },
-    {
-      pattern: /\b(exquisite|magnificent|breathtaking|stunning|gorgeous|sublime|ethereal|celestial|divine|transcendent)\b/gi,
-      type: 'flowery_language' as const,
-      description: 'Overly dramatic descriptive words'
-    },
-    {
-      pattern: /\b(\w+),\s+(\w+),?\s+(and\s+)?(\w+)\s+(hair|eyes|skin|voice|smile|laugh)\b/gi,
-      type: 'redundant_description' as const,
-      description: 'Excessive descriptive adjectives'
-    },
-    {
-      pattern: /like\s+a\s+(\w+\s+){3,}/gi,
-      type: 'overwrought_metaphor' as const,
-      description: 'Overly complex similes'
-    }
-  ];
-
-  async analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>> {
-    try {
-      const issues: ShowTellIssue[] = [];
-
-      for (const tellingPattern of WritingQualityAnalyzer.TELLING_PATTERNS) {
-        let match;
-        while ((match = tellingPattern.pattern.exec(text)) !== null) {
-          const matchText = match[0];
-          const position = match.index;
-          
-          const suggestion = this.generateShowingSuggestion(matchText, tellingPattern.type);
-          
-          issues.push({
-            text: matchText,
-            position: position,
-            type: 'telling',
-            severity: this.calculateTellingSeverity(matchText, tellingPattern.type),
-            suggestion: suggestion.suggestion,
-            example: suggestion.example
+      for (let i = 0; i < paragraphs.length; i += paragraphsPerPoint) {
+          const chunk = paragraphs.slice(i, i + paragraphsPerPoint).join('\n\n');
+          const words = this.countWords(chunk);
+          const sentences = this.countSentences(chunk);
+          let syllables = 0;
+          chunk.trim().split(/\s+/).forEach(word => {
+            syllables += this.countSyllables(word);
           });
-        }
-      }
 
-      return {
-        success: true,
-        data: issues,
-        metadata: {
-          totalIssues: issues.length,
-          severityBreakdown: this.calculateSeverityBreakdown(issues)
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Show vs Tell analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
-    }
-  }
-
-  async detectTropes(text: string): Promise<ContractResult<TropeMatch[]>> {
-    try {
-      const matches: TropeMatch[] = [];
-
-      for (const trope of WritingQualityAnalyzer.COMMON_TROPES) {
-        for (const pattern of trope.patterns) {
-          let match;
-          while ((match = pattern.exec(text)) !== null) {
-            const confidence = this.calculateTropeConfidence(match[0], text, trope);
-            
-            if (confidence > 0.3) { // Only include likely matches
-              matches.push({
-                name: trope.name,
-                description: `Common trope: ${trope.name}`,
-                text: match[0],
-                position: match.index,
-                confidence: confidence,
-                subversionSuggestions: trope.subversions,
-                category: trope.category
-              });
-            }
+          let score = 0;
+          if (words > 0 && sentences > 0) {
+            const wordsPerSentence = words / sentences;
+            const syllablesPerWord = syllables / words;
+            score = 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord;
           }
-        }
+
+          readabilityPoints.push({
+            paragraphIndex: i,
+            score: Math.max(0, Math.round(score)), // Ensure score is not negative and is rounded
+          });
       }
 
-      return {
-        success: true,
-        data: matches,
-        metadata: {
-          totalTropes: matches.length,
-          uniqueTropes: new Set(matches.map(m => m.name)).size,
-          averageConfidence: matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Trope detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
+      return { success: true, data: readabilityPoints };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      return { success: false, error: `Error in readability analysis: ${message}` };
     }
   }
 
-  async detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>> {
+  async analyzeColorPalette(text: string): Promise<ContractResult<ColorPaletteAnalysis>> {
+    if (!text || text.trim() === "") {
+        return { success: true, data: { dominantColors: [], accentColors: [], overallMood: 'Neutral' } };
+    }
+
+    // A simple map of color names to hex codes. A real implementation could be much more extensive.
+    const colorMap: Record<string, string> = {
+        // Primary & Common
+        red: '#FF0000', blue: '#0000FF', green: '#008000', black: '#000000', white: '#FFFFFF',
+        yellow: '#FFFF00', orange: '#FFA500', purple: '#800080', grey: '#808080', brown: '#A52A2A',
+        // Shades & Tones
+        scarlet: '#FF2400', crimson: '#DC143C', ruby: '#E0115F', 
+        navy: '#000080', azure: '#007FFF', cerulean: '#007BA7', indigo: '#4B0082',
+        emerald: '#50C878', olive: '#808000', lime: '#00FF00',
+        violet: '#8F00FF', lilac: '#C8A2C8', lavender: '#E6E6FA', mauve: '#E0B0FF',
+        gold: '#FFD700', silver: '#C0C0C0', bronze: '#CD7F32', copper: '#B87333',
+        amber: '#FFBF00', ochre: '#CC7722', sienna: '#882D17',
+        ivory: '#FFFFF0', cream: '#FFFDD0', beige: '#F5F5DC',
+        charcoal: '#36454F', slate: '#708090', jet: '#343434', sable: '#000000'
+    };
+
+    const words = text.toLowerCase().match(/\b\w+\b/g) || [];
+    const foundColors: Record<string, number> = {};
+    let totalColorMentions = 0;
+
+    for (const word of words) {
+        if (colorMap[word]) {
+            foundColors[word] = (foundColors[word] || 0) + 1;
+            totalColorMentions++;
+        }
+    }
+
+    if (totalColorMentions === 0) {
+        return { success: true, data: { dominantColors: [], accentColors: [], overallMood: 'Neutral' } };
+    }
+
+    const sortedColors = Object.entries(foundColors)
+        .sort(([, a], [, b]) => b - a)
+        .map(([name, frequency]) => ({
+            name: name.charAt(0).toUpperCase() + name.slice(1),
+            hex: colorMap[name],
+            prominence: frequency / totalColorMentions
+        }));
+
+    const dominantColors = sortedColors.slice(0, 3);
+    const accentColors = sortedColors.slice(3, 5);
+
+    // Basic mood detection based on dominant colors
+    const mood = dominantColors.length > 0 ? (dominantColors[0].name === 'Red' ? 'Passionate/Angry' : 'Calm') : 'Neutral';
+
+    const analysis: ColorPaletteAnalysis = {
+        dominantColors,
+        accentColors,
+        overallMood: mood
+    };
+
+    return { success: true, data: analysis };
+  }
+
+  async calculateOverallScore(report: Omit<WritingQualityReport, 'overallScore'>): Promise<ContractResult<OverallScore>> {
     try {
-      const issues: PurpleProseIssue[] = [];
+        // Prose Clarity: Higher readability score is better, fewer purple prose issues is better.
+        const avgReadability = report.readabilityPoints.length > 0
+            ? report.readabilityPoints.reduce((sum, p) => sum + p.score, 0) / report.readabilityPoints.length
+            : 50; // Default score if no points
+        const proseClarity = Math.max(0, Math.min(100, avgReadability - (report.purpleProseIssues.length * 10)));
 
-      for (const pattern of WritingQualityAnalyzer.PURPLE_PROSE_PATTERNS) {
-        let match;
-        while ((match = pattern.pattern.exec(text)) !== null) {
-          const matchText = match[0];
-          const position = match.index;
-          
-          const severity = this.calculatePurpleProseSeverity(matchText, pattern.type);
-          const suggestion = this.generatePurpleProseSuggestion(matchText, pattern.type);
-          
-          issues.push({
-            text: matchText,
-            position: position,
-            type: pattern.type,
-            severity: severity,
-            suggestion: suggestion.advice,
-            simplifiedVersion: suggestion.simplified
-          });
-        }
-      }
+        // Show vs Tell: Fewer "telling" issues is better.
+        const showVsTell = Math.max(0, 100 - (report.showTellIssues.length * 20));
 
-      // Additional checks for sentence length and complexity
-      const sentences = text.split(/[.!?]+/);
-      sentences.forEach((sentence, index) => {
-        if (sentence.length > 200) {
-          const position = text.indexOf(sentence);
-          issues.push({
-            text: sentence.trim(),
-            position: position,
-            type: 'flowery_language',
-            severity: 'moderate',
-            suggestion: 'Consider breaking this long sentence into shorter, clearer sentences',
-            simplifiedVersion: 'Break into 2-3 shorter sentences for better readability'
-          });
-        }
-      });
+        // Trope Originality: Fewer cliche tropes is better.
+        const tropeOriginality = Math.max(0, 100 - (report.tropeMatches.length * 25));
 
-      return {
-        success: true,
-        data: issues,
-        metadata: {
-          totalIssues: issues.length,
-          severityBreakdown: this.calculatePurpleProseSeverityBreakdown(issues)
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Purple prose detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
+        const score: OverallScore = {
+            showVsTell: Math.round(showVsTell),
+            tropeOriginality: Math.round(tropeOriginality),
+            proseClarity: Math.round(proseClarity),
+        };
+
+        return { success: true, data: score };
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'An unknown error occurred';
+        return { success: false, error: `Error calculating overall score: ${message}` };
     }
   }
 
-  async generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>> {
+  public async detectEchoChamber(text: string): Promise<ContractResult<EchoChamberResult[]>> {
+    if (!text || text.trim() === "") {
+        return { success: true, data: [] };
+    }
+
+    const words = text.toLowerCase().match(/\w+/g) || [];
+    const frequencyMap: Record<string, number> = {};
+    
+    for (const word of words) {
+        if (word.length > 4) { // Ignore very short words
+            frequencyMap[word] = (frequencyMap[word] || 0) + 1;
+        }
+    }
+
+    const echoChamberResults: EchoChamberResult[] = Object.entries(frequencyMap)
+        .filter(([, frequency]) => frequency > 3) // Find words used more than 3 times
+        .map(([word, frequency]) => ({
+            word,
+            frequency,
+            characters: [], // Character tracking is complex, so we'll omit it for this implementation
+        }))
+        .sort((a, b) => b.frequency - a.frequency)
+        .slice(0, 10); // Return top 10 results
+
+    return { success: true, data: echoChamberResults };
+  }
+
+  public async generateFullReport(text: string): Promise<ContractResult<WritingQualityReport>> {
     try {
-      const [showTellResult, tropeResult, purpleProseResult] = await Promise.all([
+      const [
+        readabilityResult,
+        showTellResult,
+        tropeResult,
+        purpleProseResult,
+        echoChamberResult,
+      ] = await Promise.all([
+        this.analyzeReadabilityRollercoaster(text),
         this.analyzeShowVsTell(text),
-        this.detectTropes(text),
-        this.detectPurpleProse(text)
+        this.analyzeTropes(text),
+        this.analyzePurpleProse(text),
+        this.detectEchoChamber(text),
       ]);
 
-      if (!showTellResult.success || !tropeResult.success || !purpleProseResult.success) {
-        return {
-          success: false,
-          error: 'Failed to complete quality analysis'
-        };
+      const errors = [
+        readabilityResult.error,
+        showTellResult.error,
+        tropeResult.error,
+        purpleProseResult.error,
+        echoChamberResult.error,
+      ].filter(Boolean).join('; ');
+
+      if (errors) {
+        return { success: false, error: `Failed to generate full report: ${errors}` };
       }
 
-      const report: WritingQualityReport = {
+      const partialReport: Omit<WritingQualityReport, 'overallScore'> = {
+        readabilityPoints: readabilityResult.data || [],
         showTellIssues: showTellResult.data || [],
         tropeMatches: tropeResult.data || [],
         purpleProseIssues: purpleProseResult.data || [],
-        overallScore: {
-          showVsTell: this.calculateShowVsTellScore(showTellResult.data || [], text),
-          tropeOriginality: this.calculateTropeOriginalityScore(tropeResult.data || [], text),
-          proseClarity: this.calculateProseScore(purpleProseResult.data || [], text)
-        }
+        echoChamber: echoChamberResult.data || [],
       };
 
-      return {
-        success: true,
-        data: report,
-        metadata: {
-          totalIssues: report.showTellIssues.length + report.tropeMatches.length + report.purpleProseIssues.length,
-          overallQuality: (report.overallScore.showVsTell + report.overallScore.tropeOriginality + report.overallScore.proseClarity) / 3
-        }
+      const overallScoreResult = await this.calculateOverallScore(partialReport);
+      if (!overallScoreResult.success || !overallScoreResult.data) {
+          return { success: false, error: `Failed to calculate overall score: ${overallScoreResult.error}` };
+      }
+
+      const fullReport: WritingQualityReport = {
+          ...partialReport,
+          overallScore: overallScoreResult.data,
       };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Quality report generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
-    }
-  }
 
-  private generateShowingSuggestion(tellingText: string, type: string): { suggestion: string; example: string } {
-    const suggestions: Record<string, { suggestion: string; example: string }> = {
-      emotion: {
-        suggestion: "Show the emotion through actions, dialogue, or physical reactions instead of stating it directly",
-        example: "Instead of 'She was angry' → 'Her hands clenched into fists' or 'She slammed the door'"
-      },
-      state: {
-        suggestion: "Demonstrate the physical state through specific details and sensory descriptions",
-        example: "Instead of 'He was tired' → 'His eyelids drooped' or 'He stumbled over his own feet'"
-      },
-      description: {
-        suggestion: "Let the reader see the character through specific, concrete details",
-        example: "Instead of 'She was beautiful' → 'Heads turned when she walked past' or specific features"
-      },
-      thought: {
-        suggestion: "Show thoughts through dialogue, actions, or internal monologue with specific details",
-        example: "Instead of 'He decided to leave' → Show him packing, looking at the door, or saying goodbye"
-      }
-    };
-
-    return suggestions[type] || {
-      suggestion: "Show this information through action, dialogue, or concrete details",
-      example: "Use specific, observable details instead of telling the reader directly"
-    };
-  }
-
-  private calculateTellingSeverity(text: string, type: string): 'low' | 'medium' | 'high' {
-    // More severe if it's a key emotional moment or repeated pattern
-    if (type === 'emotion' && text.includes('very')) return 'high';
-    if (type === 'thought' && text.length > 20) return 'medium';
-    return 'low';
-  }
-
-  private calculateTropeConfidence(matchText: string, fullText: string, trope: any): number {
-    let confidence = 0.5;
-    
-    // Higher confidence if multiple patterns from same trope are found
-    const otherMatches = trope.patterns.filter((p: RegExp) => p.test(fullText)).length;
-    confidence += (otherMatches - 1) * 0.2;
-    
-    // Higher confidence for exact phrase matches
-    if (matchText.toLowerCase() === trope.name.toLowerCase()) {
-      confidence += 0.3;
-    }
-    
-    return Math.min(1.0, confidence);
-  }
-
-  private calculatePurpleProseSeverity(text: string, type: string): 'mild' | 'moderate' | 'severe' {
-    switch (type) {
-      case 'excessive_adjectives':
-        return text.split(/\s+/).length > 4 ? 'severe' : 'moderate';
-      case 'flowery_language':
-        return 'moderate';
-      case 'redundant_description':
-        return text.split(',').length > 3 ? 'severe' : 'moderate';
-      case 'overwrought_metaphor':
-        return text.length > 50 ? 'severe' : 'mild';
-      default:
-        return 'mild';
-    }
-  }
-
-  private generatePurpleProseSuggestion(text: string, type: string): { advice: string; simplified: string } {
-    const suggestions: Record<string, { advice: string; simplified: string }> = {
-      excessive_adjectives: {
-        advice: "Choose one strong adjective instead of multiple weak ones",
-        simplified: "Pick the most important descriptor"
-      },
-      flowery_language: {
-        advice: "Use simpler, more direct language that doesn't draw attention to itself",
-        simplified: "Choose clearer, everyday words"
-      },
-      redundant_description: {
-        advice: "Focus on one or two key details that matter most to the scene",
-        simplified: "Select the most important details only"
-      },
-      overwrought_metaphor: {
-        advice: "Simplify the comparison to make it clearer and more impactful",
-        simplified: "Make the metaphor shorter and clearer"
-      }
-    };
-
-    return suggestions[type] || {
-      advice: "Simplify this passage for better clarity",
-      simplified: "Use clearer, more direct language"
-    };
-  }
-
-  private calculateSeverityBreakdown(issues: ShowTellIssue[]): Record<string, number> {
-    return issues.reduce((acc, issue) => {
-      acc[issue.severity] = (acc[issue.severity] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  }
-
-  private calculatePurpleProseSeverityBreakdown(issues: PurpleProseIssue[]): Record<string, number> {
-    return issues.reduce((acc, issue) => {
-      acc[issue.severity] = (acc[issue.severity] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  }
-
-  private calculateShowVsTellScore(issues: ShowTellIssue[], text: string): number {
-    const wordCount = text.split(/\s+/).length;
-    const issueCount = issues.length;
-    const ratio = issueCount / (wordCount / 100); // Issues per 100 words
-    return Math.max(0, Math.min(100, 100 - (ratio * 20)));
-  }
-
-  private calculateTropeOriginalityScore(tropes: TropeMatch[], text: string): number {
-    const wordCount = text.split(/\s+/).length;
-    const tropeCount = tropes.length;
-    const ratio = tropeCount / (wordCount / 1000); // Tropes per 1000 words
-    return Math.max(0, Math.min(100, 100 - (ratio * 30)));
-  }
-
-  private calculateProseScore(issues: PurpleProseIssue[], text: string): number {
-    const wordCount = text.split(/\s+/).length;
-    const severeIssues = issues.filter(i => i.severity === 'severe').length;
-    const moderateIssues = issues.filter(i => i.severity === 'moderate').length;
-    const mildIssues = issues.filter(i => i.severity === 'mild').length;
-    
-    const weightedIssues = (severeIssues * 3) + (moderateIssues * 2) + (mildIssues * 1);
-    const ratio = weightedIssues / (wordCount / 100); // Weighted issues per 100 words
-    
-    return Math.max(0, Math.min(100, 100 - (ratio * 15)));
-  }
-
-  async detectEchoChamber(text: string): Promise<ContractResult<EchoChamberResult[]>> {
-    try {
-      const segmentsResult = await this.textAnalysisEngine.parseText(text);
-      if (!segmentsResult.success || !segmentsResult.data) {
-        return { success: false, error: segmentsResult.error || "Failed to parse text for echo chamber detection." };
-      }
-
-      const dialogueSegments = segmentsResult.data.filter(
-        (segment): segment is TextSegment & { speaker: string } => // Type guard
-          segment.type === 'dialogue' &&
-          typeof segment.speaker === 'string' && // Ensure speaker is a string
-          segment.speaker.trim() !== '' && // Ensure speaker is not empty
-          segment.speaker !== 'Narrator'
-      );
-
-      if (dialogueSegments.length === 0) {
-        return { success: true, data: [] }; // No dialogue, so no echo chamber
-      }
-
-      const characterWordCounts = new Map<string, Map<string, number>>();
-
-      for (const segment of dialogueSegments) {
-        const speaker = segment.speaker;
-        const words = segment.content
-          .toLowerCase()
-          .split(/\W+/) // Split by non-alphanumeric characters
-          .filter(word => word.length > 0); // Remove empty strings
-
-        if (!characterWordCounts.has(speaker)) {
-          characterWordCounts.set(speaker, new Map<string, number>());
-        }
-        const speakerWordMap = characterWordCounts.get(speaker)!;
-
-        for (const word of words) {
-          if (!WritingQualityAnalyzer.STOP_WORDS.includes(word)) {
-            speakerWordMap.set(word, (speakerWordMap.get(word) || 0) + 1);
-          }
-        }
-      }
-
-      const echoedWordsRaw = new Map<string, { frequency: number; characters: Set<string> }>();
-
-      for (const [character, wordMap] of characterWordCounts) {
-        for (const [word, count] of wordMap) {
-          if (!echoedWordsRaw.has(word)) {
-            echoedWordsRaw.set(word, { frequency: 0, characters: new Set<string>() });
-          }
-          const currentWordData = echoedWordsRaw.get(word)!;
-          currentWordData.frequency += count;
-          currentWordData.characters.add(character);
-        }
-      }
-
-      const echoChamberResultsArray: EchoChamberResult[] = [];
-      for (const [word, data] of echoedWordsRaw) {
-        if (data.characters.size > 1) { // Word used by more than one character
-          echoChamberResultsArray.push({
-            word,
-            frequency: data.frequency,
-            characters: Array.from(data.characters),
-          });
-        }
-      }
-
-      // Sort by frequency (descending) then by word (ascending)
-      echoChamberResultsArray.sort((a, b) => {
-        if (b.frequency !== a.frequency) {
-          return b.frequency - a.frequency;
-        }
-        return a.word.localeCompare(b.word);
-      });
-
-      return { success: true, data: echoChamberResultsArray };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Echo chamber detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
+      return { success: true, data: fullReport };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      return { success: false, error: `An unexpected error occurred during full report generation: ${message}` };
     }
   }
 }

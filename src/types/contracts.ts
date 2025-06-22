@@ -171,6 +171,18 @@ export interface ProjectMetadata {
   version: string;
 }
 
+export interface ColorData {
+  hex: string;
+  name: string;
+  prominence: number; // e.g., percentage of use
+}
+
+export interface ColorPaletteAnalysis {
+  dominantColors: ColorData[];
+  accentColors: ColorData[];
+  overallMood: string;
+}
+
 export interface ProjectHistory {
   id: string;
   projectId: string;
@@ -390,23 +402,29 @@ export interface EchoChamberResult {
 }
 
 export interface WritingQualityReport {
+  readabilityPoints: ReadabilityPoint[];
   showTellIssues: ShowTellIssue[];
   tropeMatches: TropeMatch[];
   purpleProseIssues: PurpleProseIssue[];
-  overallScore: {
-    showVsTell: number; // 0-100
-    tropeOriginality: number; // 0-100
-    proseClarity: number; // 0-100
-  };
+  echoChamber: EchoChamberResult[];
+  overallScore: OverallScore;
+}
+
+export interface OverallScore {
+  showVsTell: number; // 0-100
+  tropeOriginality: number; // 0-100
+  proseClarity: number; // 0-100
 }
 
 export interface IWritingQualityAnalyzer {
   analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>>;
-  detectTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
-  detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
+  analyzeTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
+  analyzePurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
+  analyzeReadabilityRollercoaster(text: string, paragraphsPerPoint?: number): Promise<ContractResult<ReadabilityPoint[]>>;
   detectEchoChamber(text: string): Promise<ContractResult<EchoChamberResult[]>>;
-  generateQualityReport(text: string): Promise<ContractResult<WritingQualityReport>>;
-  analyzeReadabilityRollercoaster(text: string): Promise<ContractResult<ReadabilityPoint[]>>;
+  analyzeColorPalette(text: string): Promise<ContractResult<ColorPaletteAnalysis>>;
+  calculateOverallScore(report: Omit<WritingQualityReport, 'overallScore'>): Promise<ContractResult<OverallScore>>;
+  generateFullReport(text: string): Promise<ContractResult<WritingQualityReport>>;
 }
 
 export interface IAIEnhancementService {
