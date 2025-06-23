@@ -73,7 +73,7 @@ describe('WritingQualityAnalyzer.detectEchoChamber', () => {
 
   test('Test 3: Echoed word with different capitalization', async () => {
     const inputText = "Character A says 'Unique'. Character B says 'very unique'.";
-     setupMockParseText(inputText, [
+    setupMockParseText(inputText, [
       { content: "Unique", speaker: "Character A", type: "dialogue" },
       { content: "very unique", speaker: "Character B", type: "dialogue" },
     ]);
@@ -147,7 +147,7 @@ describe('WritingQualityAnalyzer.detectEchoChamber', () => {
 
   test('Test 8: Multiple echoed words', async () => {
     const inputText = "Sky says 'blue bird'. Ocean says 'blue fish'. Forest says 'green tree'.";
-     setupMockParseText(inputText, [
+    setupMockParseText(inputText, [
       { content: "blue bird", speaker: "Sky", type: "dialogue" },
       { content: "blue fish", speaker: "Ocean", type: "dialogue" },
       { content: "green tree", speaker: "Forest", type: "dialogue" },
@@ -197,9 +197,9 @@ describe('WritingQualityAnalyzer.detectEchoChamber', () => {
   test('Test 11: Word echoed by multiple characters, one of them also uses another echoed word', async () => {
     const inputText = "Alice says 'happy day'. Bob says 'happy thoughts'. Charlie says 'bright day'.";
     setupMockParseText(inputText, [
-        { content: "happy day", speaker: "Alice", type: "dialogue" },
-        { content: "happy thoughts", speaker: "Bob", type: "dialogue" },
-        { content: "bright day", speaker: "Charlie", type: "dialogue" },
+      { content: "happy day", speaker: "Alice", type: "dialogue" },
+      { content: "happy thoughts", speaker: "Bob", type: "dialogue" },
+      { content: "bright day", speaker: "Charlie", type: "dialogue" },
     ]);
     const result = await analyzer.detectEchoChamber(inputText);
     expect(result.success).toBe(true);
@@ -249,7 +249,7 @@ describe('WritingQualityAnalyzer.detectEchoChamber', () => {
 
   test('Test 13: Segments with empty content or only whitespace', async () => {
     const inputText = "Speaker A says 'word'. Speaker B says ' '. Speaker C says '\t\n'.";
-     setupMockParseText(inputText, [
+    setupMockParseText(inputText, [
       { content: "word", speaker: "Speaker A", type: "dialogue" },
       { content: " ", speaker: "Speaker B", type: "dialogue" },
       { content: "\t\n", speaker: "Speaker C", type: "dialogue" },
@@ -258,5 +258,31 @@ describe('WritingQualityAnalyzer.detectEchoChamber', () => {
     expect(result.success).toBe(true);
     // Only "word" from Speaker A is processed; others produce no tokens. No echo.
     expect(result.data).toEqual([]);
+  });
+
+  describe('analyzeTropes', () => {
+    it('should identify a known trope from the dictionary', async () => {
+      const text = 'The prophecy foretold that only the heir, the chosen one, could save them.';
+      const result = await analyzer.analyzeTropes(text);
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+      if (result.data) {
+        expect(result.data.length).toBe(1);
+        expect(result.data[0].name).toBe('The Chosen One');
+      }
+    });
+  });
+
+  describe('analyzePurpleProse', () => {
+    it('should identify overly descriptive sentences', async () => {
+      const text = 'The magnificently, incandescently beautiful sun descended below the spectacularly colossal mountains.';
+      const result = await analyzer.analyzePurpleProse(text);
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+      if (result.data) {
+        expect(result.data.length).toBe(1);
+        expect(result.data[0].type).toBe('telling');
+      }
+    });
   });
 });
