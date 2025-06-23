@@ -56,9 +56,9 @@ export const PowerBalanceChart: React.FC<PowerBalanceChartProps> = ({ data }) =>
   const [tooltip, setTooltip] = React.useState<{ x: number; y: number; turn: DialogueTurn } | null>(null);
 
   return (
-    <div className="relative p-4 bg-white rounded-lg shadow">
+    <div className="relative p-4 bg-white rounded-lg shadow" data-testid="power-balance-chart-container">
       <h5 className="text-lg font-semibold text-gray-700 mb-4">Dialogue Power Dynamics</h5>
-      <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto">
+      <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto" data-testid="power-balance-svg">
         {/* Y-axis Title */}
         <text
             transform={`translate(${padding - yAxisLabelOffset - 5}, ${chartHeight / 2}) rotate(-90)`}
@@ -95,7 +95,7 @@ export const PowerBalanceChart: React.FC<PowerBalanceChartProps> = ({ data }) =>
 
         {/* Data Line */}
         {points.length > 1 && (
-            <path d={`M ${linePath}`} stroke="#3b82f6" strokeWidth="2" fill="none" />
+            <path d={`M ${linePath}`} stroke="#3b82f6" strokeWidth="2" fill="none" data-testid="power-balance-line" />
         )}
 
         {/* Data Points & Tooltip Triggers */}
@@ -109,9 +109,10 @@ export const PowerBalanceChart: React.FC<PowerBalanceChartProps> = ({ data }) =>
               className="cursor-pointer"
               onMouseEnter={() => setTooltip({ x: p.x, y: p.y, turn: p.turn })}
               onMouseLeave={() => setTooltip(null)}
+              data-testid={`chart-point-${index}`}
             />
             {/* X-axis labels (character names or turn numbers) */}
-            <text x={p.x} y={chartHeight - padding + 20} fontSize="9" fill="#6b7281" textAnchor="middle">
+            <text x={p.x} y={chartHeight - padding + 20} fontSize="9" fill="#6b7281" textAnchor="middle" data-testid={`x-label-${index}`}>
               {p.turn.characterName.substring(0,10)}{data.length > 10 && index % 2 !== 0 ? "" : ` (${index+1})`}
             </text>
           </React.Fragment>

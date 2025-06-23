@@ -29,6 +29,11 @@ export const StoryInput: React.FC<StoryInputProps> = ({
   // A more robust solution would involve speaker detection for the selected segment.
   const [originalCharacterForShift, setOriginalCharacterForShift] = useState<string>("Narrator");
 
+  // Helper function to escape regex special characters
+  const escapeRegExp = (string: string): string => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+  }
+
   useEffect(() => {
     setInputText(initialText);
   }, [initialText]);
@@ -37,19 +42,61 @@ export const StoryInput: React.FC<StoryInputProps> = ({
     if (textareaRef.current) {
       const { selectionStart, selectionEnd, value } = textareaRef.current;
       if (selectionStart !== selectionEnd) {
-        setSelectedText(value.substring(selectionStart, selectionEnd));
+        const currentSelectedText = value.substring(selectionStart, selectionEnd);
+        setSelectedText(currentSelectedText);
         setSelectionRange({ start: selectionStart, end: selectionEnd });
-        // Simple heuristic for original character:
-        // This is a placeholder. A real implementation would need more context or user input.
-        // For now, we'll just use a default or the most prominent character if available.
+
+        // Refined original character detection
+        let foundCharacterName = "Narrator"; // Default
         if (storyCharacters.length > 0) {
-            // Ideally, analyze selectedText for character mentions or use context.
-            // Falling back to the first character or a default.
-            setOriginalCharacterForShift(storyCharacters[0]?.name || "Narrator");
+          const contextBeforeSelection = value.substring(Math.max(0, selectionStart - 100), selectionStart); // Look 100 chars before
+          const contextAroundSelection = value.substring(Math.max(0, selectionStart - 50), Math.min(value.length, selectionEnd + 50)); // Look 50 chars around
+
+          // Try to find attribution like "Character said," or ", said Character"
+          // This is a simplified heuristic and can be expanded.
+          for (const char of storyCharacters) {
+            if (char.name === "Narrator") continue; // Skip narrator as an explicit speaker here
+
+            const namePattern = new RegExp(`\\b${escapeRegExp(char.name)}\\b`, 'i');
+
+            // Pattern 1: "Quote," Character said. (Looking in text *after* selection if selection is quote)
+            if (currentSelectedText.startsWith('"') && currentSelectedText.endsWith('"')) {
+                const textAfterSelection = value.substring(selectionEnd, Math.min(value.length, selectionEnd + 50)).toLowerCase();
+                if (textAfterSelection.match(new RegExp(`^\\s*,?\\s*said\\s+${escapeRegExp(char.name.toLowerCase())}\\b`)) ||
+                    textAfterSelection.match(new RegExp(`^\\s*${escapeRegExp(char.name.toLowerCase())}\\s+said\\b`))) {
+                    foundCharacterName = char.name;
+                    break;
+                }
+            }
+
+            // Pattern 2: Character said, "Quote" (Looking in text *before* selection)
+            const textBeforePattern = new RegExp(`\\b${escapeRegExp(char.name)}\\b\\s+(said|asked|replied|muttered|shouted|whispered),?\\s*"${escapeRegExp(currentSelectedText.substring(0,10))}`, 'i');
+            if (contextBeforeSelection.match(textBeforePattern)) {
+                foundCharacterName = char.name;
+                break;
+            }
+
+            // Pattern 3: General mention of character name within or immediately around the selection
+            if (namePattern.test(contextAroundSelection)) {
+                // This is a weaker heuristic, might be overridden by stronger ones above.
+                // Could be refined to check proximity to dialogue.
+                foundCharacterName = char.name;
+                // Don't break here, let stronger heuristics override if found
+            }
+          }
         }
+        // If no specific character was found by heuristics, and there are characters, default to first non-narrator or narrator
+        if (foundCharacterName === "Narrator" && storyCharacters.length > 0) {
+            const firstNonNarrator = storyCharacters.find(c => c.name !== "Narrator");
+            foundCharacterName = firstNonNarrator ? firstNonNarrator.name : storyCharacters[0]?.name || "Narrator";
+        }
+
+        setOriginalCharacterForShift(foundCharacterName);
+
       } else {
         setSelectedText('');
         setSelectionRange(null);
+        setOriginalCharacterForShift("Narrator"); // Reset when no selection
       }
     }
   };
@@ -156,9 +203,8 @@ She felt a wave of relief wash over her. "Be careful," she said softly. "I'll be
       {inputMode === 'text' ? (
         <div className="space-y-4">
           <textarea
-            value={inputText}
             ref={textareaRef} // Added ref
-            value={inputText}
+            value={inputText} // Ensure value is set
             onChange={handleTextChange} // Updated handler
             onSelect={handleTextSelection} // Added onSelect
             onMouseUp={handleTextSelection} // Added onMouseUp for better selection detection

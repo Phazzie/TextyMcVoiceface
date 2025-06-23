@@ -260,3 +260,168 @@ describe('WritingQualityAnalyzer.detectEchoChamber', () => {
     expect(result.data).toEqual([]);
   });
 });
+
+describe('WritingQualityAnalyzer.analyzeDialoguePowerBalance', () => {
+  let analyzer: WritingQualityAnalyzer;
+
+  beforeEach(() => {
+    analyzer = new WritingQualityAnalyzer();
+    // Mock TextAnalysisEngine's parseText for these tests too
+    // Ensure the mock is reset and configured for each sub-test or describe block if necessary
+    mockParseText.mockReset();
+  });
+
+  // Helper to mock parseText for power balance tests
+  const setupPowerBalanceMockParseText = (sceneText: string, dialogueContents: Array<{speaker: string, content: string, start?: number, end?: number}>) => {
+    const segments: TextSegment[] = dialogueContents.map((dc, index) => {
+      const start = dc.start || (index > 0 ? (segments[index-1]?.endPosition || 0) + 1 : 0);
+      const end = dc.end || start + dc.content.length;
+      return {
+        id: `seg${index}`,
+        content: dc.content,
+        speaker: dc.speaker,
+        type: 'dialogue',
+        startPosition: start,
+        endPosition: end,
+      };
+    });
+
+    mockParseText.mockImplementation(async (inputText: string): Promise<ContractResult<TextSegment[]>> => {
+      if (inputText === sceneText) {
+        return { success: true, data: segments };
+      }
+      return { success: false, error: 'Mocked parseText (power balance): Input text does not match setup' };
+    });
+  };
+
+  test('should return empty array for empty scene text', async () => {
+    const sceneText = "";
+    setupPowerBalanceMockParseText(sceneText, []);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual([]);
+  });
+
+  test('should analyze a simple question', async () => {
+    const sceneText = `Alice: "Are you coming?"`;
+    setupPowerBalanceMockParseText(sceneText, [{ speaker: "Alice", content: "Are you coming?" }]);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(1);
+    const turn = result.data![0];
+    expect(turn.characterName).toBe("Alice");
+    expect(turn.metrics.isQuestion).toBe(true);
+    expect(turn.powerScore).toBeLessThan(0); // Questions reduce power
+  });
+
+  test('should analyze a simple command', async () => {
+    const sceneText = `Bob: "Tell me now!"`;
+    setupPowerBalanceMockParseText(sceneText, [{ speaker: "Bob", content: "Tell me now!" }]);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(1);
+    const turn = result.data![0];
+    expect(turn.characterName).toBe("Bob");
+    expect(turn.metrics.isQuestion).toBe(false);
+    expect(turn.powerScore).toBeGreaterThan(0); // Commands increase power
+  });
+
+  test('should handle hedge and intensifier words', async () => {
+    const sceneText = `Charlie: "Maybe it's very important, I guess."`;
+    // Hedges: Maybe, I guess. Intensifier: very.
+    setupPowerBalanceMockParseText(sceneText, [{ speaker: "Charlie", content: "Maybe it's very important, I guess." }]);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    const turn = result.data![0];
+    expect(turn.characterName).toBe("Charlie");
+    // hedgeCount = 2, intensifierCount = 1. Ratio = 1 / (2+1) = 0.33
+    expect(turn.metrics.hedgeToIntensifierRatio).toBeCloseTo(1 / (2 + 1));
+    expect(turn.powerScore).toBeLessThan(0); // More hedges than intensifiers
+  });
+
+  test('should detect topic change', async () => {
+    const sceneText = `David: "The weather is nice."\nEve: "Speaking of nice things, did you see that new car?"`;
+    setupPowerBalanceMockParseText(sceneText, [
+      { speaker: "David", content: "The weather is nice.", end: 22 },
+      { speaker: "Eve", content: "Speaking of nice things, did you see that new car?", start: 23 }
+    ]);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(2);
+    // David's turn metrics.topicChanged should be false or based on prior context (not testable here easily)
+    // Eve's turn should have topicChanged = true
+    const eveTurn = result.data![1];
+    expect(eveTurn.characterName).toBe("Eve");
+    expect(eveTurn.metrics.topicChanged).toBe(true);
+    expect(eveTurn.powerScore).toBeGreaterThan(result.data![0].powerScore); // Topic change bonus
+  });
+
+  test('should detect exchange termination by dialogue', async () => {
+    const sceneText = `Frank: "I disagree."\nGrace: "This conversation is over."`;
+    setupPowerBalanceMockParseText(sceneText, [
+      { speaker: "Frank", content: "I disagree." },
+      { speaker: "Grace", content: "This conversation is over." }
+    ]);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    const graceTurn = result.data![1];
+    expect(graceTurn.characterName).toBe("Grace");
+    expect(graceTurn.detectedTactic).toBe('exchangeTermination');
+    expect(graceTurn.powerScore).toBeGreaterThan(1.5); // Termination is a strong move
+  });
+
+  test('should detect exchange termination by narration', async () => {
+    const sceneText = `Ivy: "I'm done."\nIvy walked away.`;
+    // Mocking involves providing the dialogue segment and then letting the service analyze the full text for narration.
+    // The `endPosition` of Ivy's dialogue is crucial.
+    setupPowerBalanceMockParseText(sceneText, [
+      { speaker: "Ivy", content: "I'm done.", endPosition: 12 }
+    ]);
+    // The service itself will use the full sceneText: "Ivy: \"I'm done.\"\nIvy walked away."
+    // and check narration *after* segment.endPosition
+
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(1);
+    const ivyTurn = result.data![0];
+    expect(ivyTurn.characterName).toBe("Ivy");
+    expect(ivyTurn.detectedTactic).toBe('exchangeTermination');
+    expect(ivyTurn.powerScore).toBeGreaterThan(1.0);
+  });
+
+    test('should handle pronoun ratio (high I/My)', async () => {
+    const sceneText = `Leo: "I think my plan is the best I have ever made."`;
+    setupPowerBalanceMockParseText(sceneText, [{ speaker: "Leo", content: "I think my plan is the best I have ever made." }]);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    const turn = result.data![0];
+    // Power score should be slightly boosted by high first-person pronoun usage.
+    // The exact score depends on the weighting, but it should be noticeable.
+    // Initial power score might be low due to "I think", but pronoun ratio should add to it.
+    // For this test, just check that it's not heavily negative.
+    // A more precise test would require knowing the exact weights.
+    expect(turn.powerScore).toBeGreaterThan(-1.0); // Example assertion
+  });
+
+  test('should handle response latency (pause before speaking)', async () => {
+    const sceneText = `Nora: "What now?"\n... (A long pause filled the room)\nOscar: "We wait."`;
+    setupPowerBalanceMockParseText(sceneText, [
+      { speaker: "Nora", content: "What now?", endPosition: 14 },
+      { speaker: "Oscar", content: "We wait.", startPosition: 50 } // Start position after the narrative pause
+    ]);
+    // The service logic looks at sceneText.substring(dialogueSegments[i-1].endPosition, segment.startPosition)
+    // So, the text "...\n... (A long pause filled the room)\n..." will be analyzed for "paused", "hesitated" etc.
+
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(2);
+    const oscarTurn = result.data![1];
+    expect(oscarTurn.characterName).toBe("Oscar");
+    // Assuming a strategic pause (not hesitant as it's not a question and few hedges)
+    // Oscar's power score should be higher than Nora's or at least boosted by the pause.
+    expect(oscarTurn.powerScore).toBeGreaterThan(result.data![0].powerScore);
+  });
+
+
+  // TODO: Add more complex scenarios combining multiple metrics
+});

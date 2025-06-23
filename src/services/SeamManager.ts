@@ -9,13 +9,16 @@ import {
   IVoiceCustomizer,
   ITextEditor,
   IProjectManager,
-  IAIEnhancementService
+  IAIEnhancementService,
+  IAppConfigService // Added IAppConfigService
 } from '../types/contracts';
 
 // Seam Manager for coordinating component communication
 export class SeamManager {
+  private static services: Map<string, any> = new Map(); // Generic service store
   private static instance: SeamManager;
   
+  // Specific typed members for commonly accessed services for convenience and type safety.
   private textAnalysisEngine?: ITextAnalysisEngine;
   private characterDetectionSystem?: ICharacterDetectionSystem;
   private voiceAssignmentLogic?: IVoiceAssignmentLogic;
@@ -27,6 +30,7 @@ export class SeamManager {
   private textEditor?: ITextEditor;
   private projectManager?: IProjectManager;
   private aiEnhancementService?: IAIEnhancementService;
+  private appConfigService?: IAppConfigService; // Added appConfigService member
 
   private constructor() {}
 
@@ -80,9 +84,28 @@ export class SeamManager {
 
   registerAIEnhancementService(service: IAIEnhancementService): void {
     this.aiEnhancementService = service;
+    SeamManager.services.set('AIEnhancementService', service); // Generic registration
   }
 
-  // Component access
+  registerAppConfigService(service: IAppConfigService): void {
+    this.appConfigService = service;
+    SeamManager.services.set('AppConfigService', service); // Generic registration
+  }
+
+  // Generic getter
+  static get<T>(serviceName: string): T {
+    const serviceInstance = SeamManager.services.get(serviceName);
+    if (!serviceInstance) {
+      throw new Error(`${serviceName} not registered in SeamManager.`);
+    }
+    return serviceInstance as T;
+  }
+
+  static isRegistered(serviceName: string): boolean {
+    return SeamManager.services.has(serviceName);
+  }
+
+  // Component access (typed getters can still use the generic one or direct member)
   getTextAnalysisEngine(): ITextAnalysisEngine {
     if (!this.textAnalysisEngine) {
       throw new Error('TextAnalysisEngine not registered');
@@ -160,6 +183,18 @@ export class SeamManager {
     return this.aiEnhancementService;
   }
 
+  getAppConfigService(): IAppConfigService {
+    if (!this.appConfigService) {
+      // Attempt to get from generic store if direct member not set (e.g. if registered only via generic)
+      if (SeamManager.isRegistered('AppConfigService')) {
+        this.appConfigService = SeamManager.get<IAppConfigService>('AppConfigService');
+        return this.appConfigService!;
+      }
+      throw new Error('AppConfigService not registered');
+    }
+    return this.appConfigService;
+  }
+
   // Health check
   isFullyConfigured(): boolean {
     return !!(
@@ -173,7 +208,8 @@ export class SeamManager {
       this.voiceCustomizer &&
       this.textEditor &&
       this.projectManager &&
-      this.aiEnhancementService
+      this.aiEnhancementService &&
+      this.appConfigService // Added AppConfigService check
     );
   }
 }

@@ -429,6 +429,12 @@ export interface IAIEnhancementService {
   analyzeLiteraryDevices(text: string): Promise<ContractResult<LiteraryDeviceInstance[]>>;
 }
 
+// Application Configuration Service Contract
+export interface IAppConfigService {
+  getOpenAIApiKey(): Promise<ContractResult<string | null>>;
+  // Could add other general app config methods here later
+}
+
 // Interactive Text Editor Seam Contracts
 export interface TextChange {
   id: string;
