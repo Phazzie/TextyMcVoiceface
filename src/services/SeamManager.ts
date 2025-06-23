@@ -1,8 +1,8 @@
-import { 
-  ITextAnalysisEngine, 
-  ICharacterDetectionSystem, 
-  IVoiceAssignmentLogic, 
-  IAudioGenerationPipeline, 
+import {
+  ITextAnalysisEngine,
+  ICharacterDetectionSystem,
+  IVoiceAssignmentLogic,
+  IAudioGenerationPipeline,
   ISystemOrchestrator,
   IWritingQualityAnalyzer,
   IAudioControlsManager,
@@ -11,11 +11,16 @@ import {
   IProjectManager,
   IAIEnhancementService
 } from '../types/contracts';
+import {
+  ICacheManager,
+  IPerformanceMonitor,
+  IBackgroundProcessor
+} from '../../docs/performance-contracts';
 
 // Seam Manager for coordinating component communication
 export class SeamManager {
   private static instance: SeamManager;
-  
+
   private textAnalysisEngine?: ITextAnalysisEngine;
   private characterDetectionSystem?: ICharacterDetectionSystem;
   private voiceAssignmentLogic?: IVoiceAssignmentLogic;
@@ -27,8 +32,11 @@ export class SeamManager {
   private textEditor?: ITextEditor;
   private projectManager?: IProjectManager;
   private aiEnhancementService?: IAIEnhancementService;
+  private cacheManager?: ICacheManager;
+  private performanceMonitor?: IPerformanceMonitor;
+  private backgroundProcessor?: IBackgroundProcessor;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): SeamManager {
     if (!SeamManager.instance) {
@@ -80,6 +88,18 @@ export class SeamManager {
 
   registerAIEnhancementService(service: IAIEnhancementService): void {
     this.aiEnhancementService = service;
+  }
+
+  registerCacheManager(manager: ICacheManager): void {
+    this.cacheManager = manager;
+  }
+
+  registerPerformanceMonitor(monitor: IPerformanceMonitor): void {
+    this.performanceMonitor = monitor;
+  }
+
+  registerBackgroundProcessor(processor: IBackgroundProcessor): void {
+    this.backgroundProcessor = processor;
   }
 
   // Component access
@@ -160,6 +180,27 @@ export class SeamManager {
     return this.aiEnhancementService;
   }
 
+  getCacheManager(): ICacheManager {
+    if (!this.cacheManager) {
+      throw new Error('CacheManager not registered');
+    }
+    return this.cacheManager;
+  }
+
+  getPerformanceMonitor(): IPerformanceMonitor {
+    if (!this.performanceMonitor) {
+      throw new Error('PerformanceMonitor not registered');
+    }
+    return this.performanceMonitor;
+  }
+
+  getBackgroundProcessor(): IBackgroundProcessor {
+    if (!this.backgroundProcessor) {
+      throw new Error('BackgroundProcessor not registered');
+    }
+    return this.backgroundProcessor;
+  }
+
   // Health check
   isFullyConfigured(): boolean {
     return !!(
@@ -173,7 +214,10 @@ export class SeamManager {
       this.voiceCustomizer &&
       this.textEditor &&
       this.projectManager &&
-      this.aiEnhancementService
+      this.aiEnhancementService &&
+      this.cacheManager &&
+      this.performanceMonitor &&
+      this.backgroundProcessor
     );
   }
 }
