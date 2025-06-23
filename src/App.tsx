@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Headphones, Sparkles, Book, Settings, FileCheck, BarChart3, Mic, FolderOpen, Database, Shield, LogOut } from 'lucide-react';
+import { Headphones, Sparkles, Book, Settings, FileCheck, BarChart3, Mic, FolderOpen, Database, Shield, LogOut, BookOpen } from 'lucide-react'; // Added BookOpen
 import { User } from '@supabase/supabase-js';
 import { SeamManager } from './services/SeamManager';
 import { SystemOrchestrator } from './services/implementations/SystemOrchestrator';
@@ -25,7 +25,9 @@ import { WritingQualityReport } from './components/WritingQualityReport';
 import { ProgressDashboard } from './components/ProgressDashboard';
 import { VoiceCustomizer } from './components/VoiceCustomizer';
 import { ProjectManager } from './components/ProjectManager';
-import { ProcessingStatus as ProcessingStatusType, AudioOutput, Character, VoiceAssignment, WritingQualityReport as QualityReportType, VoiceProfile, StoryProject } from './types/contracts';
+import { InteractiveTextDisplay } from './components/InteractiveTextDisplay'; // Added
+import { AIEnhancementService } from './services/implementations/AIEnhancementService'; // Added
+import { ProcessingStatus as ProcessingStatusType, AudioOutput, Character, VoiceAssignment, WritingQualityReport as QualityReportType, VoiceProfile, StoryProject, TextSegment, IAIEnhancementService } from './types/contracts'; // Added TextSegment, IAIEnhancementService
 import { NotificationProvider } from './contexts/NotificationContext';
 import NotificationsContainer from './components/NotificationsContainer';
 import { useNotifier } from './hooks/useNotifier';
@@ -41,12 +43,14 @@ function App() {
   const [audioOutput, setAudioOutput] = useState<AudioOutput | null>(null);
   const [qualityReport, setQualityReport] = useState<QualityReportType | null>(null);
   const [originalText, setOriginalText] = useState<string>('');
+  const [textSegments, setTextSegments] = useState<TextSegment[]>([]); // Added
   const [characters, setCharacters] = useState<Character[]>([]);
   const [voiceAssignments, setVoiceAssignments] = useState<VoiceAssignment[]>([]);
   const [orchestrator, setOrchestrator] = useState<SystemOrchestrator | null>(null);
+  const [aiEnhancementService, setAIEnhancementService] = useState<IAIEnhancementService | null>(null); // Added
   const [showElevenLabsSetup, setShowElevenLabsSetup] = useState(false);
   const [useElevenLabs, setUseElevenLabs] = useState(false);
-  const [activeView, setActiveView] = useState<'audiobook' | 'analysis' | 'progress' | 'voices'>('audiobook');
+  const [activeView, setActiveView] = useState<'audiobook' | 'analysis' | 'progress' | 'voices' | 'editor'>('audiobook'); // Added 'editor' view
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [currentProject, setCurrentProject] = useState<StoryProject | null>(null);
   const [supabaseConnected, setSupabaseConnected] = useState(false);
@@ -97,6 +101,13 @@ function App() {
       seamManager.registerTextEditor(new TextEditor());
       seamManager.registerProjectManager(new ProjectManagerService());
       
+      // Instantiate and register AI Enhancement Service
+      const aiService = new AIEnhancementService();
+      // Typically, you might register it with SeamManager if other services need to discover it,
+      // or if it needs dependencies from SeamManager. For now, we'll set it in state.
+      // seamManager.registerService('IAIEnhancementService', aiService); // Example if SeamManager supports generic services
+      setAIEnhancementService(aiService);
+
       setInitializationStatus('Testing Supabase connection...');
       
       // Test Supabase connection
@@ -227,6 +238,7 @@ function App() {
         // Get segments and characters
         const parseResult = await textAnalysisEngine.parseText(text);
         if (parseResult.success && parseResult.data) {
+          setTextSegments(parseResult.data); // Store segments
           const charactersResult = await characterDetectionSystem.detectCharacters(parseResult.data);
           if (charactersResult.success && charactersResult.data) {
             setCharacters(charactersResult.data);
@@ -236,6 +248,11 @@ function App() {
               setVoiceAssignments(voiceAssignmentsResult.data);
             }
           }
+        } else {
+          setTextSegments([]); // Clear segments if parsing failed
+          setCharacters([]);
+          setVoiceAssignments([]);
+           addNotification(`Text parsing failed: ${parseResult.error || 'Unknown error'}. Some features may be limited.`, 'warning');
         }
 
         // Generate writing quality report
@@ -317,6 +334,7 @@ function App() {
     setAudioOutput(null);
     setQualityReport(null);
     setOriginalText('');
+    setTextSegments([]); // Reset segments
     setCharacters([]);
     setVoiceAssignments([]);
     setActiveView('audiobook');
@@ -517,8 +535,22 @@ function App() {
                         <Mic className="w-4 h-4" />
                         <span>Voices</span>
                       </button>
+                       <button // New button for Editor View
+                        onClick={() => setActiveView('editor')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 flex items-center space-x-2 ${
+                          activeView === 'editor'
+                            ? 'bg-teal-500 text-white shadow-md'
+                            : 'text-teal-600 hover:bg-teal-50'
+                        }`}
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        <span>Edit Text</span>
+                      </button>
                     </>
                   )}
+                  {/* This Progress button seems redundant with the one inside the conditional block above. Assuming one is enough.
+                      If this was intended for 'input' stage specifically, it needs its own conditional logic.
+                      For now, I'll remove the apparently duplicated one.
                   <button
                     onClick={() => setActiveView('progress')}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 flex items-center space-x-2 ${
@@ -530,6 +562,7 @@ function App() {
                     <BarChart3 className="w-4 h-4" />
                     <span>Progress</span>
                   </button>
+                  */}
                 </div>
               )}
 
@@ -703,6 +736,22 @@ function App() {
 
         {activeView === 'progress' && (
           <ProgressDashboard />
+        )}
+
+        {currentStage === 'complete' && activeView === 'editor' && aiEnhancementService && textSegments.length > 0 && (
+          <InteractiveTextDisplay
+            textSegments={textSegments}
+            characters={characters}
+            aiEnhancementService={aiEnhancementService}
+            className="mt-8"
+          />
+        )}
+        {currentStage === 'complete' && activeView === 'editor' && textSegments.length === 0 && (
+          <div className="mt-8 p-6 bg-white rounded-xl shadow-lg text-center">
+            <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">No Text Content for Editor</h3>
+            <p className="text-gray-500">The story segments could not be loaded. Please ensure the story was processed correctly.</p>
+          </div>
         )}
       </main>
 

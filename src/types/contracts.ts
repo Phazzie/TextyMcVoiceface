@@ -588,6 +588,11 @@ export interface ISystemOrchestrator {
   cancelProcessing(): Promise<ContractResult<boolean>>;
 }
 
+// AI Enhancement Service Contract
+export interface IAIEnhancementService {
+  rewriteFromNewPerspective(text: string, newCharacterName: string, originalCharacterName: string): Promise<ContractResult<string>>;
+}
+
 // Error types
 export class NotImplementedError extends Error {
   constructor(componentName: string, methodName: string) {
