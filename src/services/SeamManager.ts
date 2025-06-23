@@ -9,7 +9,8 @@ import {
   IVoiceCustomizer,
   ITextEditor,
   IProjectManager,
-  IAIEnhancementService
+  IAIEnhancementService,
+  IAppConfigService
 } from '../types/contracts';
 import {
   ICacheManager,
@@ -19,8 +20,9 @@ import {
 
 // Seam Manager for coordinating component communication
 export class SeamManager {
+  private static services: Map<string, any> = new Map();
   private static instance: SeamManager;
-
+  // Specific typed members for commonly accessed services for convenience and type safety.
   private textAnalysisEngine?: ITextAnalysisEngine;
   private characterDetectionSystem?: ICharacterDetectionSystem;
   private voiceAssignmentLogic?: IVoiceAssignmentLogic;
@@ -32,9 +34,7 @@ export class SeamManager {
   private textEditor?: ITextEditor;
   private projectManager?: IProjectManager;
   private aiEnhancementService?: IAIEnhancementService;
-  private cacheManager?: ICacheManager;
-  private performanceMonitor?: IPerformanceMonitor;
-  private backgroundProcessor?: IBackgroundProcessor;
+  private appConfigService?: IAppConfigService;
 
   private constructor() { }
 
@@ -49,158 +49,107 @@ export class SeamManager {
   registerTextAnalysisEngine(engine: ITextAnalysisEngine): void {
     this.textAnalysisEngine = engine;
   }
-
   registerCharacterDetectionSystem(system: ICharacterDetectionSystem): void {
     this.characterDetectionSystem = system;
   }
-
   registerVoiceAssignmentLogic(logic: IVoiceAssignmentLogic): void {
     this.voiceAssignmentLogic = logic;
   }
-
   registerAudioGenerationPipeline(pipeline: IAudioGenerationPipeline): void {
     this.audioGenerationPipeline = pipeline;
   }
-
   registerSystemOrchestrator(orchestrator: ISystemOrchestrator): void {
     this.systemOrchestrator = orchestrator;
   }
-
   registerWritingQualityAnalyzer(analyzer: IWritingQualityAnalyzer): void {
     this.writingQualityAnalyzer = analyzer;
   }
-
   registerAudioControlsManager(manager: IAudioControlsManager): void {
     this.audioControlsManager = manager;
   }
-
   registerVoiceCustomizer(customizer: IVoiceCustomizer): void {
     this.voiceCustomizer = customizer;
   }
-
   registerTextEditor(editor: ITextEditor): void {
     this.textEditor = editor;
   }
-
   registerProjectManager(manager: IProjectManager): void {
     this.projectManager = manager;
   }
-
   registerAIEnhancementService(service: IAIEnhancementService): void {
     this.aiEnhancementService = service;
+    SeamManager.services.set('AIEnhancementService', service);
   }
-
-  registerCacheManager(manager: ICacheManager): void {
-    this.cacheManager = manager;
+  registerAppConfigService(service: IAppConfigService): void {
+    this.appConfigService = service;
+    SeamManager.services.set('AppConfigService', service);
   }
-
-  registerPerformanceMonitor(monitor: IPerformanceMonitor): void {
-    this.performanceMonitor = monitor;
+  // Generic getter
+  static get<T>(serviceName: string): T {
+    const serviceInstance = SeamManager.services.get(serviceName);
+    if (!serviceInstance) {
+      throw new Error(`${serviceName} not registered in SeamManager.`);
+    }
+    return serviceInstance as T;
   }
-
-  registerBackgroundProcessor(processor: IBackgroundProcessor): void {
-    this.backgroundProcessor = processor;
+  static isRegistered(serviceName: string): boolean {
+    return SeamManager.services.has(serviceName);
   }
-
   // Component access
   getTextAnalysisEngine(): ITextAnalysisEngine {
-    if (!this.textAnalysisEngine) {
-      throw new Error('TextAnalysisEngine not registered');
-    }
+    if (!this.textAnalysisEngine) throw new Error('TextAnalysisEngine not registered');
     return this.textAnalysisEngine;
   }
-
   getCharacterDetectionSystem(): ICharacterDetectionSystem {
-    if (!this.characterDetectionSystem) {
-      throw new Error('CharacterDetectionSystem not registered');
-    }
+    if (!this.characterDetectionSystem) throw new Error('CharacterDetectionSystem not registered');
     return this.characterDetectionSystem;
   }
-
   getVoiceAssignmentLogic(): IVoiceAssignmentLogic {
-    if (!this.voiceAssignmentLogic) {
-      throw new Error('VoiceAssignmentLogic not registered');
-    }
+    if (!this.voiceAssignmentLogic) throw new Error('VoiceAssignmentLogic not registered');
     return this.voiceAssignmentLogic;
   }
-
   getAudioGenerationPipeline(): IAudioGenerationPipeline {
-    if (!this.audioGenerationPipeline) {
-      throw new Error('AudioGenerationPipeline not registered');
-    }
+    if (!this.audioGenerationPipeline) throw new Error('AudioGenerationPipeline not registered');
     return this.audioGenerationPipeline;
   }
-
   getSystemOrchestrator(): ISystemOrchestrator {
-    if (!this.systemOrchestrator) {
-      throw new Error('SystemOrchestrator not registered');
-    }
+    if (!this.systemOrchestrator) throw new Error('SystemOrchestrator not registered');
     return this.systemOrchestrator;
   }
-
   getWritingQualityAnalyzer(): IWritingQualityAnalyzer {
-    if (!this.writingQualityAnalyzer) {
-      throw new Error('WritingQualityAnalyzer not registered');
-    }
+    if (!this.writingQualityAnalyzer) throw new Error('WritingQualityAnalyzer not registered');
     return this.writingQualityAnalyzer;
   }
-
   getAudioControlsManager(): IAudioControlsManager {
-    if (!this.audioControlsManager) {
-      throw new Error('AudioControlsManager not registered');
-    }
+    if (!this.audioControlsManager) throw new Error('AudioControlsManager not registered');
     return this.audioControlsManager;
   }
-
   getVoiceCustomizer(): IVoiceCustomizer {
-    if (!this.voiceCustomizer) {
-      throw new Error('VoiceCustomizer not registered');
-    }
+    if (!this.voiceCustomizer) throw new Error('VoiceCustomizer not registered');
     return this.voiceCustomizer;
   }
-
   getTextEditor(): ITextEditor {
-    if (!this.textEditor) {
-      throw new Error('TextEditor not registered');
-    }
+    if (!this.textEditor) throw new Error('TextEditor not registered');
     return this.textEditor;
   }
-
   getProjectManager(): IProjectManager {
-    if (!this.projectManager) {
-      throw new Error('ProjectManager not registered');
-    }
+    if (!this.projectManager) throw new Error('ProjectManager not registered');
     return this.projectManager;
   }
-
   getAIEnhancementService(): IAIEnhancementService {
-    if (!this.aiEnhancementService) {
-      throw new Error('AIEnhancementService not registered');
-    }
+    if (!this.aiEnhancementService) throw new Error('AIEnhancementService not registered');
     return this.aiEnhancementService;
   }
-
-  getCacheManager(): ICacheManager {
-    if (!this.cacheManager) {
-      throw new Error('CacheManager not registered');
+  getAppConfigService(): IAppConfigService {
+    if (!this.appConfigService) {
+      if (SeamManager.isRegistered('AppConfigService')) {
+        this.appConfigService = SeamManager.get<IAppConfigService>('AppConfigService');
+        return this.appConfigService!;
+      }
+      throw new Error('AppConfigService not registered');
     }
-    return this.cacheManager;
+    return this.appConfigService;
   }
-
-  getPerformanceMonitor(): IPerformanceMonitor {
-    if (!this.performanceMonitor) {
-      throw new Error('PerformanceMonitor not registered');
-    }
-    return this.performanceMonitor;
-  }
-
-  getBackgroundProcessor(): IBackgroundProcessor {
-    if (!this.backgroundProcessor) {
-      throw new Error('BackgroundProcessor not registered');
-    }
-    return this.backgroundProcessor;
-  }
-
   // Health check
   isFullyConfigured(): boolean {
     return !!(
@@ -215,9 +164,7 @@ export class SeamManager {
       this.textEditor &&
       this.projectManager &&
       this.aiEnhancementService &&
-      this.cacheManager &&
-      this.performanceMonitor &&
-      this.backgroundProcessor
+      this.appConfigService
     );
   }
 }

@@ -1,31 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Lightbulb, Sparkles, Palette, Zap, LineChart as ReadabilityIcon } from 'lucide-react';
-import { 
-  WritingQualityReport as QualityReportType, 
-  ColorPaletteAnalysis,
-  LiteraryDeviceInstance,
-  ReadabilityPoint
-} from '../types/contracts';
+import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, Palette, Zap, LineChart as ReadabilityIcon, TrendingUp } from 'lucide-react';
+import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, ReadabilityPoint, DialogueTurn, IWritingQualityAnalyzer, ContractResult } from '../types/contracts';
 import { ColorPaletteReport } from './reports/ColorPaletteReport';
 import { LiteraryDevicesReport } from './reports/LiteraryDevicesReport';
 import { ReadabilityReport } from './reports/ReadabilityReport';
+import { ReadabilityChart } from './ReadabilityChart';
+import { PowerBalanceChart } from './reports/PowerBalanceChart';
 import { SeamManager } from '../services/SeamManager';
+import { WritingQualityAnalyzer } from '../services/implementations/WritingQualityAnalyzer';
 
 interface WritingQualityReportProps {
   report: QualityReportType;
   originalText: string;
+  analyzer?: IWritingQualityAnalyzer;
 }
 
-export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'color-palette' | 'literary-devices' | 'readability'>('overview');
+export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText, analyzer: initialAnalyzer }) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'color-palette' | 'literary-devices' | 'readability' | 'power-balance'>('overview');
 
   // State for Color Palette
-  const [colorPalette, setColorPalette] = useState<ColorPaletteAnalysis | null>(null);
+  const [colorPalette, setColorPalette] = useState<any | null>(null);
   const [isColorPaletteLoading, setIsColorPaletteLoading] = useState(false);
   const [colorPaletteError, setColorPaletteError] = useState<string | null>(null);
 
   // State for Literary Devices
-  const [literaryDevices, setLiteraryDevices] = useState<LiteraryDeviceInstance[]>([]);
+  const [literaryDevices, setLiteraryDevices] = useState<any[]>([]);
   const [isLiteraryDevicesLoading, setIsLiteraryDevicesLoading] = useState(false);
   const [literaryDevicesError, setLiteraryDevicesError] = useState<string | null>(null);
 
@@ -34,7 +33,15 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
   const [isReadabilityLoading, setIsReadabilityLoading] = useState(false);
   const [readabilityError, setReadabilityError] = useState<string | null>(null);
 
+  // State for Power Balance
+  const [powerBalanceData, setPowerBalanceData] = useState<DialogueTurn[] | null>(null);
+  const [isLoadingPowerBalance, setIsLoadingPowerBalance] = useState<boolean>(false);
+  const [powerBalanceError, setPowerBalanceError] = useState<string | null>(null);
+
+  const analyzer = initialAnalyzer || new WritingQualityAnalyzer();
+
   useEffect(() => {
+    // Fetch color palette, literary devices, and readability data
     const fetchAllAnalysisData = async () => {
       setIsColorPaletteLoading(true);
       setIsLiteraryDevicesLoading(true);
@@ -88,6 +95,53 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
     }
   }, [originalText]);
 
+  useEffect(() => {
+    // Fetch readability and power balance data for new tabs
+    const fetchReadability = async () => {
+      setIsReadabilityLoading(true);
+      setReadabilityError(null);
+      try {
+        const result = await analyzer.analyzeReadabilityRollercoaster(originalText);
+        if (result.success && result.data) {
+          setReadabilityData(result.data);
+        } else {
+          setReadabilityError(result.error || 'Failed to load readability data.');
+          setReadabilityData([]);
+        }
+      } catch (err) {
+        setReadabilityError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        setReadabilityData([]);
+      } finally {
+        setIsReadabilityLoading(false);
+      }
+    };
+
+    const fetchPowerBalance = async () => {
+      setIsLoadingPowerBalance(true);
+      setPowerBalanceError(null);
+      try {
+        const result = await analyzer.analyzeDialoguePowerBalance(originalText);
+        if (result.success && result.data) {
+          setPowerBalanceData(result.data);
+        } else {
+          setPowerBalanceError(result.error || 'Failed to load power balance data.');
+          setPowerBalanceData([]);
+        }
+      } catch (err) {
+        setPowerBalanceError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        setPowerBalanceData([]);
+      } finally {
+        setIsLoadingPowerBalance(false);
+      }
+    };
+
+    if (activeTab === 'readability' && !readabilityData && !isReadabilityLoading && !readabilityError) {
+      fetchReadability();
+    }
+    if (activeTab === 'power-balance' && !powerBalanceData && !isLoadingPowerBalance && !powerBalanceError) {
+      fetchPowerBalance();
+    }
+  }, [activeTab, originalText, analyzer, readabilityData, powerBalanceData, isReadabilityLoading, isLoadingPowerBalance, readabilityError, powerBalanceError]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600 bg-green-100';
@@ -226,18 +280,137 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg max-w-6xl mx-auto my-8">
-      <div className="flex border-b mb-6">
-        <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 font-semibold ${activeTab === 'overview' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Overview</button>
-        <button onClick={() => setActiveTab('show-tell')} className={`px-4 py-2 font-semibold ${activeTab === 'show-tell' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Show/Tell</button>
-        <button onClick={() => setActiveTab('tropes')} className={`px-4 py-2 font-semibold ${activeTab === 'tropes' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Tropes</button>
-        <button onClick={() => setActiveTab('prose')} className={`px-4 py-2 font-semibold ${activeTab === 'prose' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Prose</button>
-        <button onClick={() => setActiveTab('color-palette')} className={`flex items-center px-4 py-2 font-semibold ${activeTab === 'color-palette' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}><Palette className="w-4 h-4 mr-2"/>Color Palette</button>
-        <button onClick={() => setActiveTab('literary-devices')} className={`flex items-center px-4 py-2 font-semibold ${activeTab === 'literary-devices' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}><Zap className="w-4 h-4 mr-2"/>Literary Devices</button>
-        <button onClick={() => setActiveTab('readability')} className={`flex items-center px-4 py-2 font-semibold ${activeTab === 'readability' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}><ReadabilityIcon className="w-4 h-4 mr-2"/>Readability</button>
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 mb-6 bg-gray-100 rounded-xl p-1">
+        {[
+          { key: 'overview', label: 'Overview', icon: BookOpen },
+          { key: 'show-tell', label: 'Show vs Tell', icon: Eye },
+          { key: 'tropes', label: 'Trope Analysis', icon: Target },
+          { key: 'prose', label: 'Prose Quality', icon: Sparkles },
+          { key: 'readability', label: 'Readability', icon: ReadabilityIcon },
+          { key: 'power-balance', label: 'Power Balance', icon: TrendingUp } // Added Power Balance Tab
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as any)}
+            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+              activeTab === tab.key
+                ? 'bg-white text-blue-600 shadow-md'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            <span>{tab.label}</span>
+          </button>
+        ))}
       </div>
-      <div>
-        {renderTabContent()}
-      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* Score Overview */}
+          <div className="grid grid-cols-3 gap-6">
+            <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+              <Eye className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+              <div className={`text-3xl font-bold mb-1 ${getScoreColor(report.overallScore.showVsTell).split(' ')[0]}`}>
+                {report.overallScore.showVsTell}
+              </div>
+              <div className="text-sm text-gray-600">Show vs Tell</div>
+              <div className="text-xs text-gray-500 mt-1">{report.showTellIssues.length} issues found</div>
+            </div>
+            
+            <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
+              <Target className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+              <div className={`text-3xl font-bold mb-1 ${getScoreColor(report.overallScore.tropeOriginality).split(' ')[0]}`}>
+                {report.overallScore.tropeOriginality}
+              </div>
+              <div className="text-sm text-gray-600">Originality</div>
+              <div className="text-xs text-gray-500 mt-1">{report.tropeMatches.length} tropes detected</div>
+            </div>
+            
+            <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
+              <Sparkles className="w-8 h-8 text-green-600 mx-auto mb-2" />
+              <div className={`text-3xl font-bold mb-1 ${getScoreColor(report.overallScore.proseClarity).split(' ')[0]}`}>
+                {report.overallScore.proseClarity}
+              </div>
+              <div className="text-sm text-gray-600">Prose Clarity</div>
+              <div className="text-xs text-gray-500 mt-1">{report.purpleProseIssues.length} style issues</div>
+            </div>
+          </div>
+
+          {/* Quick Summary */}
+          <div className="bg-gray-50 rounded-xl p-6">
+            <h4 className="font-semibold text-gray-800 mb-3">Quick Summary</h4>
+            <div className="space-y-2 text-sm">
+              {report.showTellIssues.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                  <span>Consider showing more emotions and actions through concrete details</span>
+                </div>
+              )}
+              {report.tropeMatches.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <Lightbulb className="w-4 h-4 text-blue-500" />
+                  <span>Some common tropes detected - consider creative subversions</span>
+                </div>
+              )}
+              {report.purpleProseIssues.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="w-4 h-4 text-purple-500" />
+                  <span>Prose could be simplified in places for better clarity</span>
+                </div>
+              )}
+              {report.showTellIssues.length === 0 && report.tropeMatches.length === 0 && report.purpleProseIssues.length === 0 && (
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <span>Great job! Your writing shows strong technical craft</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'show-tell' && (
+        <ShowTellTab issues={report.showTellIssues} originalText={originalText} />
+      )}
+
+      {activeTab === 'tropes' && (
+        <TropeAnalysisTab matches={report.tropeMatches} originalText={originalText} />
+      )}
+
+      {activeTab === 'prose' && (
+        <ProseQualityTab issues={report.purpleProseIssues} originalText={originalText} />
+      )}
+
+      {activeTab === 'readability' && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Readability Rollercoaster (Flesch-Kincaid)</h4>
+          {isLoadingReadability && <div className="text-center p-4">Loading readability chart...</div>}
+          {readabilityError && <div className="text-center p-4 text-red-600">Error: {readabilityError}</div>}
+          {readabilityData && readabilityData.length > 0 && !isLoadingReadability && !readabilityError && (
+            <ReadabilityChart data={readabilityData} />
+          )}
+          {readabilityData && readabilityData.length === 0 && !isLoadingReadability && !readabilityError && (
+            <div className="text-center p-4">Not enough text or paragraphs to generate a readability chart.</div>
+          )}
+        </div>
+      )}
+
+      {/* Power Balance Tab Content */}
+      {activeTab === 'power-balance' && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Dialogue Power Balance</h4>
+          {isLoadingPowerBalance && <div className="text-center p-4">Loading power balance chart...</div>}
+          {powerBalanceError && <div className="text-center p-4 text-red-600">Error: {powerBalanceError}</div>}
+          {powerBalanceData && powerBalanceData.length > 0 && !isLoadingPowerBalance && !powerBalanceError && (
+            <PowerBalanceChart data={powerBalanceData} />
+          )}
+          {powerBalanceData && powerBalanceData.length === 0 && !isLoadingPowerBalance && !powerBalanceError && (
+            <div className="text-center p-4">Not enough dialogue data to generate a power balance chart.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -416,11 +416,27 @@ export interface OverallScore {
   proseClarity: number; // 0-100
 }
 
+export interface DialogueTurn {
+  characterName: string;
+  powerScore: number; // A score from -5 (submissive) to +5 (dominant).
+  metrics: {
+    isQuestion: boolean;
+    interruptions: number; // Count of interruptions initiated by this character in this turn
+    wordCount: number;
+    hedgeToIntensifierRatio: number; // Ratio of intensifiers to (hedges + intensifiers). Higher means more power.
+    topicChanged: boolean; // True if this turn successfully changed the topic
+  };
+  detectedTactic?: 'weaponizedPoliteness' | 'exchangeTermination'; // Special tactics detected
+}
+
 export interface IWritingQualityAnalyzer {
   analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>>;
   analyzeTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
   analyzePurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
   analyzeReadabilityRollercoaster(text: string, paragraphsPerPoint?: number): Promise<ContractResult<ReadabilityPoint[]>>;
+  analyzeDialoguePowerBalance(sceneText: string): Promise<ContractResult<DialogueTurn[]>>;
+  detectTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
+  detectPurpleProse(text: string): Promise<ContractResult<PurpleProseIssue[]>>;
   detectEchoChamber(text: string): Promise<ContractResult<EchoChamberResult[]>>;
   analyzeColorPalette(text: string): Promise<ContractResult<ColorPaletteAnalysis>>;
   calculateOverallScore(report: Omit<WritingQualityReport, 'overallScore'>): Promise<ContractResult<OverallScore>>;
@@ -429,7 +445,14 @@ export interface IWritingQualityAnalyzer {
 
 export interface IAIEnhancementService {
   invertTrope(context: string, tropeName: string): Promise<ContractResult<string>>;
-  rewriteFromNewPerspective(text: string, newCharacter: Character): Promise<ContractResult<string>>;
+  rewriteFromNewPerspective(text: string, newCharacterName: string, originalCharacterName: string): Promise<ContractResult<string>>;
+  analyzeLiteraryDevices(text: string): Promise<ContractResult<LiteraryDeviceInstance[]>>;
+}
+
+// Application Configuration Service Contract
+export interface IAppConfigService {
+  getOpenAIApiKey(): Promise<ContractResult<string | null>>;
+  // Could add other general app config methods here later
 }
 
 // Interactive Text Editor Seam Contracts
@@ -615,10 +638,6 @@ export interface LiteraryDeviceInstance {
   textSnippet: string;
   explanation: string;
   position: number;
-}
-
-export interface IAIEnhancementService {
-  analyzeLiteraryDevices(text: string): Promise<ContractResult<LiteraryDeviceInstance[]>>;
 }
 
 // System Orchestration Seam Contracts
