@@ -6,6 +6,7 @@ import {
   ProcessingOptions 
 } from '../../types/contracts';
 import { SeamManager } from '../SeamManager';
+import log from '../../utils/logger';
 
 export class SystemOrchestrator implements ISystemOrchestrator {
   private currentStatus: ProcessingStatus = {
@@ -28,6 +29,7 @@ export class SystemOrchestrator implements ISystemOrchestrator {
     this.isProcessing = true;
     this.shouldCancel = false;
     const startTime = Date.now();
+    log.info('Starting story processing', { textLength: text.length, options });
 
     try {
       const seamManager = SeamManager.getInstance();
@@ -40,6 +42,7 @@ export class SystemOrchestrator implements ISystemOrchestrator {
       const parseResult = await textAnalysisEngine.parseText(text);
       
       if (!parseResult.success || !parseResult.data) {
+        log.error('Text analysis failed', { error: parseResult.error, text });
         throw new Error(`Text analysis failed: ${parseResult.error}`);
       }
       
@@ -54,6 +57,7 @@ export class SystemOrchestrator implements ISystemOrchestrator {
       const charactersResult = await characterDetectionSystem.detectCharacters(segments);
       
       if (!charactersResult.success || !charactersResult.data) {
+        log.error('Character detection failed', { error: charactersResult.error, segments });
         throw new Error(`Character detection failed: ${charactersResult.error}`);
       }
       
@@ -68,6 +72,7 @@ export class SystemOrchestrator implements ISystemOrchestrator {
       const voiceAssignmentsResult = await voiceAssignmentLogic.assignVoices(characters);
       
       if (!voiceAssignmentsResult.success || !voiceAssignmentsResult.data) {
+        log.error('Voice assignment failed', { error: voiceAssignmentsResult.error, characters });
         throw new Error(`Voice assignment failed: ${voiceAssignmentsResult.error}`);
       }
       
@@ -92,6 +97,7 @@ export class SystemOrchestrator implements ISystemOrchestrator {
         const voice = voiceMap.get(segment.speaker);
         
         if (!voice) {
+          log.error('No voice assigned for character', { character: segment.speaker, segment });
           throw new Error(`No voice assigned for character: ${segment.speaker}`);
         }
         
@@ -100,6 +106,7 @@ export class SystemOrchestrator implements ISystemOrchestrator {
         const audioResult = await audioGenerationPipeline.generateSegmentAudio(segment, voice);
         
         if (!audioResult.success || !audioResult.data) {
+          log.error('Audio generation failed for segment', { error: audioResult.error, segment, voice });
           throw new Error(`Audio generation failed for segment ${i + 1}: ${audioResult.error}`);
         }
         
@@ -113,6 +120,7 @@ export class SystemOrchestrator implements ISystemOrchestrator {
       const combinedAudioResult = await audioGenerationPipeline.combineAudioSegments(audioSegments);
       
       if (!combinedAudioResult.success || !combinedAudioResult.data) {
+        log.error('Audio combination failed', { error: combinedAudioResult.error, audioSegmentsCount: audioSegments.length });
         throw new Error(`Audio combination failed: ${combinedAudioResult.error}`);
       }
       
@@ -129,11 +137,14 @@ export class SystemOrchestrator implements ISystemOrchestrator {
             ...finalAudio,
             audioFile: optimizedResult.data
           };
+        } else if (!optimizedResult.success) {
+          log.warn('Audio optimization failed, using unoptimized audio', { error: optimizedResult.error });
         }
       }
 
       // Complete
       this.updateStatus('complete', 100, 'Audiobook generation complete!');
+      log.info('Story processing completed successfully', { processingTime: Date.now() - startTime, segments: segments.length, characters: characters.length });
       
       const processingTime = Date.now() - startTime;
       finalAudio.metadata.processingTime = processingTime;
@@ -150,11 +161,13 @@ export class SystemOrchestrator implements ISystemOrchestrator {
       };
 
     } catch (error) {
-      this.updateStatus('error', 0, error instanceof Error ? error.message : 'Unknown error occurred');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      log.error('Error during story processing pipeline', { error, currentStatus: this.currentStatus });
+      this.updateStatus('error', 0, errorMessage);
       
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error: errorMessage
       };
     } finally {
       this.isProcessing = false;
@@ -178,6 +191,7 @@ export class SystemOrchestrator implements ISystemOrchestrator {
     }
 
     this.shouldCancel = true;
+    log.info('Processing cancelled by user', { currentStatus: this.currentStatus });
     this.updateStatus('error', 0, 'Processing cancelled by user');
     
     return {

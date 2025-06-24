@@ -111,6 +111,18 @@ npm run build
 npm run preview
 ```
 
+### Logging
+The project uses `loglevel` for client-side logging.
+- **Configuration**: Located in `src/utils/logger.ts`.
+- **Log Level**:
+  - In development (`process.env.NODE_ENV === 'development'`), the default level is `DEBUG`.
+  - In production, the default level is `WARN`.
+  - You can temporarily change the log level in `src/utils/logger.ts` for more verbose output during debugging (e.g., `log.setLevel(log.levels.TRACE);`).
+- **Output Format**: Logs are prefixed with the log level (e.g., `[ERROR]`) and a timestamp (e.g., `2023-10-27T10:00:00.000Z -`).
+- **Usage**: Import the logger in any module: `import log from './utils/logger';` (adjust path as necessary). Then use `log.debug('message')`, `log.info('message')`, `log.warn('message')`, `log.error('message', errorObject)`.
+- **Global Error Handling**: Uncaught exceptions and unhandled promise rejections are automatically logged via handlers in `src/main.tsx`.
+- **Viewing Logs**: Open your browser's developer console to view the logs.
+
 ### Project Structure
 ```
 src/
