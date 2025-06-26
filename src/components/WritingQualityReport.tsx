@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, Palette, Zap, LineChart as ReadabilityIcon, TrendingUp } from 'lucide-react';
-import { WritingQualityReport as QualityReportType, ShowTellIssue, TropeMatch, PurpleProseIssue, ReadabilityPoint, DialogueTurn, IWritingQualityAnalyzer, ContractResult } from '../types/contracts';
+import { AlertTriangle, CheckCircle, Eye, Lightbulb, Sparkles, BookOpen, Target, Palette, Zap, LineChart as ReadabilityIcon, TrendingUp, RefreshCw, Wand2 } from 'lucide-react';
+import {
+    WritingQualityReport as QualityReportType,
+    ShowTellIssue,
+    TropeMatch,
+    PurpleProseIssue,
+    ReadabilityPoint,
+    DialogueTurn,
+    IWritingQualityAnalyzer,
+    IAIEnhancementService,
+    LiteraryDeviceInstance,
+    ColorPaletteAnalysis
+} from '../types/contracts';
 import { ColorPaletteReport } from './reports/ColorPaletteReport';
 import { LiteraryDevicesReport } from './reports/LiteraryDevicesReport';
 import { ReadabilityReport } from './reports/ReadabilityReport';
@@ -8,6 +19,7 @@ import { ReadabilityChart } from './ReadabilityChart';
 import { PowerBalanceChart } from './reports/PowerBalanceChart';
 import { SeamManager } from '../services/SeamManager';
 import { WritingQualityAnalyzer } from '../services/implementations/WritingQualityAnalyzer';
+import { useNotifier } from '../hooks/useNotifier';
 
 interface WritingQualityReportProps {
   report: QualityReportType;
@@ -17,11 +29,6 @@ interface WritingQualityReportProps {
 
 export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ report, originalText, analyzer: initialAnalyzer }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'show-tell' | 'tropes' | 'prose' | 'color-palette' | 'literary-devices' | 'readability' | 'power-balance'>('overview');
-
-  // State for Color Palette
-  const [colorPalette, setColorPalette] = useState<any | null>(null);
-  const [isColorPaletteLoading, setIsColorPaletteLoading] = useState(false);
-  const [colorPaletteError, setColorPaletteError] = useState<string | null>(null);
 
   // State for Literary Devices
   const [literaryDevices, setLiteraryDevices] = useState<any[]>([]);
@@ -37,6 +44,11 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
   const [powerBalanceData, setPowerBalanceData] = useState<DialogueTurn[] | null>(null);
   const [isLoadingPowerBalance, setIsLoadingPowerBalance] = useState<boolean>(false);
   const [powerBalanceError, setPowerBalanceError] = useState<string | null>(null);
+  
+  // State for Color Palette
+  const [colorPalette, setColorPalette] = useState<ColorPaletteAnalysis | null>(null);
+  const [isColorPaletteLoading, setIsColorPaletteLoading] = useState(false);
+  const [colorPaletteError, setColorPaletteError] = useState<string | null>(null);
 
   const analyzer = initialAnalyzer || new WritingQualityAnalyzer();
 
@@ -159,27 +171,6 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
     return { grade: 'F', desc: 'Significant Issues' };
   };
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'overview':
-        return renderOverview();
-      case 'show-tell':
-        return renderShowTell();
-      case 'tropes':
-        return renderTropes();
-      case 'prose':
-        return renderPurpleProse();
-      case 'color-palette':
-        return <ColorPaletteReport analysis={colorPalette} isLoading={isColorPaletteLoading} error={colorPaletteError} />;
-      case 'literary-devices':
-        return <LiteraryDevicesReport devices={literaryDevices} isLoading={isLiteraryDevicesLoading} error={literaryDevicesError} />;
-      case 'readability':
-        return <ReadabilityReport data={readabilityData} isLoading={isReadabilityLoading} error={readabilityError} />;
-      default:
-        return renderOverview();
-    }
-  };
-
   const renderOverview = () => {
     const overallGrade = getOverallGrade();
     return (
@@ -212,72 +203,6 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
     );
   };
 
-  const renderShowTell = () => (
-    <div>
-      <h3 className="text-xl font-bold mb-4">Show vs. Tell Analysis</h3>
-      {report.showTellIssues.length === 0 ? (
-        <div className="text-center p-6 bg-green-50 text-green-800 rounded-lg">
-          <p className="font-semibold">No significant "telling" statements found. Great job showing the story!</p>
-        </div>
-      ) : (
-        <ul className="space-y-4">
-          {report.showTellIssues.map((issue, index) => (
-            <li key={index} className="p-4 border border-yellow-300 bg-yellow-50 rounded-lg">
-              <p className="font-semibold text-yellow-800">Telling Statement:</p>
-              <blockquote className="italic text-gray-600 border-l-4 border-yellow-400 pl-4 my-2">{issue.text}</blockquote>
-              <p className="font-semibold text-green-800 mt-2">Suggestion:</p>
-              <p className="text-gray-700">{issue.suggestion}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-
-  const renderTropes = () => (
-    <div>
-      <h3 className="text-xl font-bold mb-4">Trope Analysis</h3>
-      {report.tropeMatches.length === 0 ? (
-        <div className="text-center p-6 bg-green-50 text-green-800 rounded-lg">
-          <p className="font-semibold">No common tropes detected. Your story is refreshingly original!</p>
-        </div>
-      ) : (
-        <ul className="space-y-4">
-          {report.tropeMatches.map((trope, index) => (
-            <li key={index} className="p-4 border border-blue-300 bg-blue-50 rounded-lg">
-              <p className="font-semibold text-blue-800">Trope Detected: {trope.name}</p>
-              <blockquote className="italic text-gray-600 border-l-4 border-blue-400 pl-4 my-2">{trope.text}</blockquote>
-              <p className="font-semibold text-gray-800 mt-2">Confidence: {trope.confidence}</p>
-              <p className="text-gray-700">{trope.description}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-
-  const renderPurpleProse = () => (
-    <div>
-      <h3 className="text-xl font-bold mb-4">Purple Prose Analysis</h3>
-      {report.purpleProseIssues.length === 0 ? (
-        <div className="text-center p-6 bg-green-50 text-green-800 rounded-lg">
-          <p className="font-semibold">Your prose is clear and concise. No purple prose found!</p>
-        </div>
-      ) : (
-        <ul className="space-y-4">
-          {report.purpleProseIssues.map((issue, index) => (
-            <li key={index} className="p-4 border border-purple-300 bg-purple-50 rounded-lg">
-              <p className="font-semibold text-purple-800">Overly Ornate Phrase:</p>
-              <blockquote className="italic text-gray-600 border-l-4 border-purple-400 pl-4 my-2">{issue.text}</blockquote>
-              <p className="font-semibold text-green-800 mt-2">Suggestion:</p>
-              <p className="text-gray-700">{issue.suggestion}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg max-w-6xl mx-auto my-8">
       {/* Tab Navigation */}
@@ -287,8 +212,10 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
           { key: 'show-tell', label: 'Show vs Tell', icon: Eye },
           { key: 'tropes', label: 'Trope Analysis', icon: Target },
           { key: 'prose', label: 'Prose Quality', icon: Sparkles },
+          { key: 'color-palette', label: 'Color Palette', icon: Palette },
+          { key: 'literary-devices', label: 'Literary Devices', icon: Zap },
           { key: 'readability', label: 'Readability', icon: ReadabilityIcon },
-          { key: 'power-balance', label: 'Power Balance', icon: TrendingUp } // Added Power Balance Tab
+          { key: 'power-balance', label: 'Power Balance', icon: TrendingUp }
         ].map((tab) => (
           <button
             key={tab.key}
@@ -306,73 +233,10 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          {/* Score Overview */}
-          <div className="grid grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
-              <Eye className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <div className={`text-3xl font-bold mb-1 ${getScoreColor(report.overallScore.showVsTell).split(' ')[0]}`}>
-                {report.overallScore.showVsTell}
-              </div>
-              <div className="text-sm text-gray-600">Show vs Tell</div>
-              <div className="text-xs text-gray-500 mt-1">{report.showTellIssues.length} issues found</div>
-            </div>
-            
-            <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
-              <Target className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-              <div className={`text-3xl font-bold mb-1 ${getScoreColor(report.overallScore.tropeOriginality).split(' ')[0]}`}>
-                {report.overallScore.tropeOriginality}
-              </div>
-              <div className="text-sm text-gray-600">Originality</div>
-              <div className="text-xs text-gray-500 mt-1">{report.tropeMatches.length} tropes detected</div>
-            </div>
-            
-            <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
-              <Sparkles className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <div className={`text-3xl font-bold mb-1 ${getScoreColor(report.overallScore.proseClarity).split(' ')[0]}`}>
-                {report.overallScore.proseClarity}
-              </div>
-              <div className="text-sm text-gray-600">Prose Clarity</div>
-              <div className="text-xs text-gray-500 mt-1">{report.purpleProseIssues.length} style issues</div>
-            </div>
-          </div>
-
-          {/* Quick Summary */}
-          <div className="bg-gray-50 rounded-xl p-6">
-            <h4 className="font-semibold text-gray-800 mb-3">Quick Summary</h4>
-            <div className="space-y-2 text-sm">
-              {report.showTellIssues.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                  <span>Consider showing more emotions and actions through concrete details</span>
-                </div>
-              )}
-              {report.tropeMatches.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <Lightbulb className="w-4 h-4 text-blue-500" />
-                  <span>Some common tropes detected - consider creative subversions</span>
-                </div>
-              )}
-              {report.purpleProseIssues.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <Sparkles className="w-4 h-4 text-purple-500" />
-                  <span>Prose could be simplified in places for better clarity</span>
-                </div>
-              )}
-              {report.showTellIssues.length === 0 && report.tropeMatches.length === 0 && report.purpleProseIssues.length === 0 && (
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span>Great job! Your writing shows strong technical craft</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === 'overview' && renderOverview()}
 
       {activeTab === 'show-tell' && (
-        <ShowTellTab issues={report.showTellIssues} originalText={originalText} />
+        <ShowTellTab issues={report.showTellIssues} />
       )}
 
       {activeTab === 'tropes' && (
@@ -380,18 +244,22 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
       )}
 
       {activeTab === 'prose' && (
-        <ProseQualityTab issues={report.purpleProseIssues} originalText={originalText} />
+        <ProseQualityTab issues={report.purpleProseIssues} />
       )}
+      
+      {activeTab === 'color-palette' && <ColorPaletteReport analysis={colorPalette} isLoading={isColorPaletteLoading} error={colorPaletteError} />}
+      
+      {activeTab === 'literary-devices' && <LiteraryDevicesReport devices={literaryDevices} isLoading={isLiteraryDevicesLoading} error={literaryDevicesError} />}
 
       {activeTab === 'readability' && (
         <div>
           <h4 className="text-lg font-semibold text-gray-800 mb-4">Readability Rollercoaster (Flesch-Kincaid)</h4>
-          {isLoadingReadability && <div className="text-center p-4">Loading readability chart...</div>}
+          {isReadabilityLoading && <div className="text-center p-4">Loading readability chart...</div>}
           {readabilityError && <div className="text-center p-4 text-red-600">Error: {readabilityError}</div>}
-          {readabilityData && readabilityData.length > 0 && !isLoadingReadability && !readabilityError && (
+          {readabilityData && readabilityData.length > 0 && !isReadabilityLoading && !readabilityError && (
             <ReadabilityChart data={readabilityData} />
           )}
-          {readabilityData && readabilityData.length === 0 && !isLoadingReadability && !readabilityError && (
+          {readabilityData && readabilityData.length === 0 && !isReadabilityLoading && !readabilityError && (
             <div className="text-center p-4">Not enough text or paragraphs to generate a readability chart.</div>
           )}
         </div>
@@ -411,6 +279,221 @@ export const WritingQualityReport: React.FC<WritingQualityReportProps> = ({ repo
           )}
         </div>
       )}
+    </div>
+  );
+};
+
+const ShowTellTab: React.FC<{ issues: ShowTellIssue[] }> = ({ issues }) => (
+    <div>
+      <h3 className="text-xl font-bold mb-4">Show vs. Tell Analysis</h3>
+      {issues.length === 0 ? (
+        <div className="text-center p-6 bg-green-50 text-green-800 rounded-lg">
+          <p className="font-semibold">No significant "telling" statements found. Great job showing the story!</p>
+        </div>
+      ) : (
+        <ul className="space-y-4">
+          {issues.map((issue, index) => (
+            <li key={index} className="p-4 border border-yellow-300 bg-yellow-50 rounded-lg">
+              <p className="font-semibold text-yellow-800">Telling Statement:</p>
+              <blockquote className="italic text-gray-600 border-l-4 border-yellow-400 pl-4 my-2">{issue.text}</blockquote>
+              <p className="font-semibold text-green-800 mt-2">Suggestion:</p>
+              <p className="text-gray-700">{issue.suggestion}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+interface TropeInteractionState {
+  [tropeNameAndPosition: string]: {
+    suggestion?: string;
+    isLoading: boolean;
+    error?: string;
+  };
+}
+
+const TropeAnalysisTab: React.FC<{ matches: TropeMatch[]; originalText: string }> = ({ matches, originalText }) => {
+  const [aiEnhancementService, setAiEnhancementService] = useState<IAIEnhancementService | undefined>(undefined);
+  const [tropeSuggestions, setTropeSuggestions] = useState<TropeInteractionState>({});
+  const { addNotification } = useNotifier();
+
+  useEffect(() => {
+    const service = SeamManager.getInstance().getAIEnhancementService();
+    setAiEnhancementService(service);
+  }, []);
+
+  const handleInvertTrope = async (trope: TropeMatch) => {
+    if (!aiEnhancementService) {
+      addNotification('AI Enhancement Service is not available. Cannot invert trope.', 'error');
+      return;
+    }
+
+    const tropeKey = `${trope.name}-${trope.position}`;
+    setTropeSuggestions(prev => ({
+      ...prev,
+      [tropeKey]: { isLoading: true, error: undefined, suggestion: undefined }
+    }));
+
+    try {
+      const result = await aiEnhancementService.invertTrope(originalText, trope);
+      if (result.success && result.data) {
+        setTropeSuggestions(prev => ({
+          ...prev,
+          [tropeKey]: { isLoading: false, suggestion: result.data }
+        }));
+        addNotification(`New subversion idea generated for "${trope.name}"!`, 'success');
+      } else {
+        setTropeSuggestions(prev => ({
+          ...prev,
+          [tropeKey]: { isLoading: false, error: result.error || 'Failed to get suggestion.' }
+        }));
+        addNotification(`Could not generate subversion for "${trope.name}": ${result.error}`, 'error');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      setTropeSuggestions(prev => ({
+        ...prev,
+        [tropeKey]: { isLoading: false, error: errorMessage }
+      }));
+      addNotification(`Error inverting trope: ${errorMessage}`, 'error');
+    }
+  };
+
+  if (matches.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Target className="w-16 h-16 text-green-500 mx-auto mb-4" />
+        <h4 className="text-xl font-semibold text-gray-800 mb-2">Highly Original!</h4>
+        <p className="text-gray-600">No common tropes detected. Your story shows great originality.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-lg font-semibold text-gray-800">Trope Detection & Subversion Ideas</h4>
+        <div className="text-sm text-gray-600">{matches.length} tropes found</div>
+      </div>
+      
+      {matches.map((match) => {
+        const tropeKey = `${match.name}-${match.position}`;
+        const currentSuggestionState = tropeSuggestions[tropeKey];
+
+        return (
+          <div key={tropeKey} className="border-l-4 border-purple-400 bg-purple-50 p-4 rounded-r-lg">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h5 className="font-semibold text-gray-800">{match.name}</h5>
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <span className="capitalize">{match.category}</span>
+                  <span>•</span>
+                  <span>{Math.round(match.confidence * 100)}% confidence</span>
+                </div>
+              </div>
+              <button
+                onClick={() => handleInvertTrope(match)}
+                disabled={!aiEnhancementService || currentSuggestionState?.isLoading}
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-200 rounded-md hover:bg-purple-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {currentSuggestionState?.isLoading ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="w-3.5 h-3.5" />
+                )}
+                <span>{currentSuggestionState?.isLoading ? 'Working...' : 'Invert Trope'}</span>
+              </button>
+            </div>
+
+            <div className="font-mono text-sm bg-white p-2 rounded border mb-3">"{match.text}"</div>
+
+            {currentSuggestionState?.suggestion && (
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <h6 className="font-medium text-sm text-green-800 mb-1 flex items-center">
+                  <Lightbulb className="w-4 h-4 mr-2 text-green-600" />
+                  AI Subversion Idea:
+                </h6>
+                <p className="text-sm text-green-700">{currentSuggestionState.suggestion}</p>
+              </div>
+            )}
+
+            {currentSuggestionState?.error && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <h6 className="font-medium text-sm text-red-800 mb-1 flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-2 text-red-600" />
+                  Error:
+                </h6>
+                <p className="text-sm text-red-700">{currentSuggestionState.error}</p>
+              </div>
+            )}
+
+            {!currentSuggestionState?.suggestion && !currentSuggestionState?.error && (
+                 <div>
+                    <h6 className="font-medium text-gray-800 mb-2 text-sm">💡 Original Subversion Ideas:</h6>
+                    {match.subversionSuggestions && match.subversionSuggestions.length > 0 ? (
+                        <ul className="space-y-1 text-sm text-gray-700">
+                        {match.subversionSuggestions.map((suggestion, i) => (
+                            <li key={i} className="flex items-start space-x-2">
+                            <span className="text-purple-500 mt-1">•</span>
+                            <span>{suggestion}</span>
+                            </li>
+                        ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-gray-500 italic">No pre-defined subversion ideas for this trope.</p>
+                    )}
+                 </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const ProseQualityTab: React.FC<{ issues: PurpleProseIssue[] }> = ({ issues }) => {
+  if (issues.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Sparkles className="w-16 h-16 text-green-500 mx-auto mb-4" />
+        <h4 className="text-xl font-semibold text-gray-800 mb-2">Crystal Clear Prose!</h4>
+        <p className="text-gray-600">Your writing style is clear and effective. No purple prose issues detected.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-lg font-semibold text-gray-800">Prose Clarity Analysis</h4>
+        <div className="text-sm text-gray-600">{issues.length} style issues found</div>
+      </div>
+      
+      {issues.map((issue, index) => (
+        <div key={index} className="border-l-4 border-indigo-400 bg-indigo-50 p-4 rounded-r-lg">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                issue.severity === 'severe' ? 'bg-red-100 text-red-700' :
+                issue.severity === 'moderate' ? 'bg-yellow-100 text-yellow-700' :
+                'bg-blue-100 text-blue-700'
+              }`}>
+                {issue.severity}
+              </span>
+              <span className="text-sm text-gray-600 capitalize">{issue.type.replace('_', ' ')}</span>
+            </div>
+          </div>
+          
+          <div className="font-mono text-sm bg-white p-2 rounded border mb-3">"{issue.text}"</div>
+          
+          <div className="text-sm text-gray-700 mb-2">{issue.suggestion}</div>
+          
+          <div className="text-xs text-green-700 bg-green-50 p-2 rounded">
+            💡 Simplified: {issue.simplifiedVersion}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

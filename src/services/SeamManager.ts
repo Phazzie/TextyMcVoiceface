@@ -9,8 +9,12 @@ import {
   IVoiceCustomizer,
   ITextEditor,
   IProjectManager,
+<<<<<<< HEAD
   IAIEnhancementService,
   IAppConfigService
+=======
+  IAIEnhancementService
+>>>>>>> origin/feat/trope-inverter-ai
 } from '../types/contracts';
 import {
   ICacheManager,
@@ -34,7 +38,10 @@ export class SeamManager {
   private textEditor?: ITextEditor;
   private projectManager?: IProjectManager;
   private aiEnhancementService?: IAIEnhancementService;
+<<<<<<< HEAD
   private appConfigService?: IAppConfigService;
+=======
+>>>>>>> origin/feat/trope-inverter-ai
 
   private constructor() { }
 
@@ -76,6 +83,7 @@ export class SeamManager {
   registerProjectManager(manager: IProjectManager): void {
     this.projectManager = manager;
   }
+<<<<<<< HEAD
   registerAIEnhancementService(service: IAIEnhancementService): void {
     this.aiEnhancementService = service;
     SeamManager.services.set('AIEnhancementService', service);
@@ -95,6 +103,13 @@ export class SeamManager {
   static isRegistered(serviceName: string): boolean {
     return SeamManager.services.has(serviceName);
   }
+=======
+
+  registerAIEnhancementService(service: IAIEnhancementService): void {
+    this.aiEnhancementService = service;
+  }
+
+>>>>>>> origin/feat/trope-inverter-ai
   // Component access
   getTextAnalysisEngine(): ITextAnalysisEngine {
     if (!this.textAnalysisEngine) throw new Error('TextAnalysisEngine not registered');
@@ -136,6 +151,7 @@ export class SeamManager {
     if (!this.projectManager) throw new Error('ProjectManager not registered');
     return this.projectManager;
   }
+<<<<<<< HEAD
   getAIEnhancementService(): IAIEnhancementService {
     if (!this.aiEnhancementService) throw new Error('AIEnhancementService not registered');
     return this.aiEnhancementService;
@@ -150,6 +166,15 @@ export class SeamManager {
     }
     return this.appConfigService;
   }
+=======
+
+  getAIEnhancementService(): IAIEnhancementService | undefined {
+    // This service is optional, so we don't throw if it's not registered.
+    // The UI will handle cases where it's undefined.
+    return this.aiEnhancementService;
+  }
+
+>>>>>>> origin/feat/trope-inverter-ai
   // Health check
   isFullyConfigured(): boolean {
     return !!(

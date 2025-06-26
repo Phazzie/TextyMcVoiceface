@@ -632,12 +632,18 @@ export interface ITextEditor {
   broadcastChange(change: TextChange): Promise<ContractResult<boolean>>;
 }
 
+<<<<<<< HEAD
 // AI Enhancement Seam Contracts
 export interface LiteraryDeviceInstance {
   deviceType: 'Metaphor' | 'Simile' | 'Analogy' | 'Personification' | 'Anthropomorphism' | 'Zoomorphism' | 'Allegory' | 'Juxtaposition' | 'Alliteration' | 'Assonance' | 'Consonance' | 'Onomatopoeia' | 'Cacophony' | 'Euphony' | 'Sibilance' | 'Hyperbole' | 'Understatement' | 'Paradox' | 'Oxymoron' | 'Irony' | 'Foreshadowing' | 'Flashback' | 'Anaphora' | 'Epistrophe' | 'Polysyndeton' | 'Asyndeton' | 'ChekhovsGun' | 'InMediasRes' | 'Imagery' | 'Symbolism' | 'Motif' | 'PatheticFallacy' | 'Metonymy' | 'Synecdoche' | 'Apostrophe' | 'Allusion' | 'Euphemism' | 'Pun';
   textSnippet: string;
   explanation: string;
   position: number;
+=======
+// AI Enhancement Service Contract
+export interface IAIEnhancementService {
+  invertTrope(sceneContext: string, trope: TropeMatch): Promise<ContractResult<string>>;
+>>>>>>> origin/feat/trope-inverter-ai
 }
 
 // System Orchestration Seam Contracts
