@@ -422,6 +422,92 @@ describe('WritingQualityAnalyzer.analyzeDialoguePowerBalance', () => {
     expect(oscarTurn.powerScore).toBeGreaterThan(result.data![0].powerScore);
   });
 
+  test('should detect weaponized politeness', async () => {
+    const sceneText = `PowerfulPerson: "You will do as I say!"\nMeekPerson: "Sir, please, might I offer a very small suggestion?"`;
+    setupPowerBalanceMockParseText(sceneText, [
+      { speaker: "PowerfulPerson", content: "You will do as I say!", end: 30 }, // High power turn
+      { speaker: "MeekPerson", content: "Sir, please, might I offer a very small suggestion?", start: 31 }
+    ]);
+    // Mock PowerfulPerson's turn to have a high power score for context
+    // This requires modifying how dialogueTurns are built or having a pre-calculated turn to insert.
+    // For simplicity, we'll rely on the natural scoring of the command for PowerfulPerson.
+    // The test will check if MeekPerson's politeness in response to a strong statement is flagged.
 
-  // TODO: Add more complex scenarios combining multiple metrics
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(2);
+
+    const powerfulTurn = result.data![0];
+    // Expect PowerfulPerson's command to give them a positive score
+    expect(powerfulTurn.powerScore).toBeGreaterThan(0);
+
+    const meekTurn = result.data![1];
+    expect(meekTurn.characterName).toBe("MeekPerson");
+    expect(meekTurn.detectedTactic).toBe('weaponizedPoliteness');
+     // Politeness itself might lower score, but weaponized tactic adds a bonus.
+     // The net effect depends on weighting, but the tactic should be detected.
+    expect(meekTurn.powerScore).toBeGreaterThan(powerfulTurn.powerScore - 2.0); // Example: less submissive than a simple polite question due to tactic
+  });
+
+  test('should correctly identify interruptions by trailing ellipsis/dash', async () => {
+    const sceneText = `SpeakerA: "I was about to say something important but then--"\nSpeakerB: "But then I interrupted you!"`;
+    setupPowerBalanceMockParseText(sceneText, [
+      { speaker: "SpeakerA", content: "I was about to say something important but then--", end: 50 },
+      { speaker: "SpeakerB", content: "But then I interrupted you!", start: 51 }
+    ]);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(2);
+    const speakerBTurn = result.data![1];
+    expect(speakerBTurn.metrics.interruptions).toBe(1); // Speaker B's turn is effectively the interruption.
+    // The logic credits the interrupter, so B's score should be boosted.
+    expect(speakerBTurn.powerScore).toBeGreaterThan(result.data![0].powerScore);
+  });
+
+  test('should correctly identify interruptions by leading ellipsis/dash', async () => {
+    const sceneText = `SpeakerA: "I have a point to make."\nSpeakerB: "--And I have a counterpoint!"`;
+    setupPowerBalanceMockParseText(sceneText, [
+      { speaker: "SpeakerA", content: "I have a point to make.", end: 25 },
+      { speaker: "SpeakerB", content: "--And I have a counterpoint!", start: 26 }
+    ]);
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(2);
+    const speakerBTurn = result.data![1];
+     // The current logic gives a small boost for starting with '--'
+    expect(speakerBTurn.powerScore).toBeGreaterThan(result.data![0].powerScore - 0.5); // Allow for slight variations
+  });
+
+  test('complex scenario with multiple power dynamics', async () => {
+    const sceneText = `Manager: "Absolutely complete this report by five, no excuses!"\nSarah: "But sir, I think I might need more time... the data is very complex."\nManager: "More time? What did I just say? Perhaps you're not up to the task?"\nSarah: "I understand your urgency. I will get it done. Goodbye."`;
+    setupPowerBalanceMockParseText(sceneText, [
+      { speaker: "Manager", content: "Absolutely complete this report by five, no excuses!", end: 50 },
+      { speaker: "Sarah", content: "But sir, I think I might need more time... the data is very complex.", start: 51, end: 120 },
+      { speaker: "Manager", content: "More time? What did I just say? Perhaps you're not up to the task?", start: 121, end: 190 },
+      { speaker: "Sarah", content: "I understand your urgency. I will get it done. Goodbye.", start: 191 }
+    ]);
+
+    const result = await analyzer.analyzeDialoguePowerBalance(sceneText);
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(4);
+
+    const managerTurn1 = result.data![0]; // Command, intensifier
+    expect(managerTurn1.powerScore).toBeGreaterThan(1.5);
+    expect(managerTurn1.metrics.hedgeToIntensifierRatio).toBeGreaterThan(0.5);
+
+
+    const sarahTurn1 = result.data![1]; // Hedge, question-like, politeness
+    expect(sarahTurn1.powerScore).toBeLessThan(0);
+    expect(sarahTurn1.metrics.hedgeToIntensifierRatio).toBeLessThan(0.5);
+    // Might be weaponized politeness due to "sir" after a command
+    // expect(sarahTurn1.detectedTactic).toBe('weaponizedPoliteness'); // This depends on the threshold for prevTurn.powerScore
+
+    const managerTurn2 = result.data![2]; // Questions, challenge
+    expect(managerTurn2.metrics.isQuestion).toBe(true);
+    expect(managerTurn2.powerScore).toBeLessThan(managerTurn1.powerScore); // Questions, less direct command
+
+    const sarahTurn2 = result.data![3]; // Termination
+    expect(sarahTurn2.detectedTactic).toBe('exchangeTermination');
+    expect(sarahTurn2.powerScore).toBeGreaterThan(1.5); // Strong termination move
+  });
 });
