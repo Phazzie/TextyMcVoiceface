@@ -362,6 +362,19 @@ export interface IAudioControlsManager {
 }
 
 // Writing Quality Analysis Contracts
+
+// This is the new centralized interface for all analysis data
+export interface WritingQualityAnalysis {
+  overallScore?: OverallScore;
+  showTellIssues?: ShowTellIssue[];
+  tropeMatches?: TropeMatch[];
+  purpleProseIssues?: PurpleProseIssue[];
+  echoChamber?: EchoChamberResult[]; // Added from existing WritingQualityReport
+  colorPalette?: ColorPaletteAnalysis | null;
+  literaryDevices?: LiteraryDeviceInstance[];
+  readabilityPoints?: ReadabilityPoint[] | null; // Changed from 'readabilityData' for consistency
+}
+
 export interface ReadabilityPoint {
   paragraphIndex: number;
   score: number; // The Flesch-Kincaid reading ease score

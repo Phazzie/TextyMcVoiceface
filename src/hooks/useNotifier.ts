@@ -8,9 +8,11 @@ export const useNotifier = () => {
     throw new Error('useNotifier must be used within a NotificationProvider');
   }
 
-  // Return only addNotification for a cleaner API for components triggering notifications
+  // Expose all functions from the context, including the new on and notify
   return {
-    addNotification: (message: string, type: NotificationType, duration?: number) =>
-      context.addNotification(message, type, duration),
+    addNotification: context.addNotification,
+    removeNotification: context.removeNotification, // also exposing removeNotification for completeness
+    on: context.on,
+    notify: context.notify,
   };
 };
