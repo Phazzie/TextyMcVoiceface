@@ -429,6 +429,21 @@ export interface DialogueTurn {
   detectedTactic?: 'weaponizedPoliteness' | 'exchangeTermination'; // Special tactics detected
 }
 
+// Voice Consistency Analysis Contracts
+export interface CharacterFingerprint {
+  characterName: string;
+  metrics: {
+    averageSentenceLength: number;
+    vocabularyRichness: number;
+    topWords: { word: string; frequency: number }[]; // top 5 non-common words
+  };
+}
+
+export interface VoiceConsistencyResult {
+  fingerprints: CharacterFingerprint[];
+  warnings: string[];
+}
+
 export interface IWritingQualityAnalyzer {
   analyzeShowVsTell(text: string): Promise<ContractResult<ShowTellIssue[]>>;
   analyzeTropes(text: string): Promise<ContractResult<TropeMatch[]>>;
@@ -441,6 +456,7 @@ export interface IWritingQualityAnalyzer {
   analyzeColorPalette(text: string): Promise<ContractResult<ColorPaletteAnalysis>>;
   calculateOverallScore(report: Omit<WritingQualityReport, 'overallScore'>): Promise<ContractResult<OverallScore>>;
   generateFullReport(text: string): Promise<ContractResult<WritingQualityReport>>;
+  analyzeVoiceConsistency(text: string): Promise<ContractResult<VoiceConsistencyResult>>;
 }
 
 export interface IAIEnhancementService {
@@ -632,18 +648,12 @@ export interface ITextEditor {
   broadcastChange(change: TextChange): Promise<ContractResult<boolean>>;
 }
 
-<<<<<<< HEAD
 // AI Enhancement Seam Contracts
 export interface LiteraryDeviceInstance {
   deviceType: 'Metaphor' | 'Simile' | 'Analogy' | 'Personification' | 'Anthropomorphism' | 'Zoomorphism' | 'Allegory' | 'Juxtaposition' | 'Alliteration' | 'Assonance' | 'Consonance' | 'Onomatopoeia' | 'Cacophony' | 'Euphony' | 'Sibilance' | 'Hyperbole' | 'Understatement' | 'Paradox' | 'Oxymoron' | 'Irony' | 'Foreshadowing' | 'Flashback' | 'Anaphora' | 'Epistrophe' | 'Polysyndeton' | 'Asyndeton' | 'ChekhovsGun' | 'InMediasRes' | 'Imagery' | 'Symbolism' | 'Motif' | 'PatheticFallacy' | 'Metonymy' | 'Synecdoche' | 'Apostrophe' | 'Allusion' | 'Euphemism' | 'Pun';
   textSnippet: string;
   explanation: string;
   position: number;
-=======
-// AI Enhancement Service Contract
-export interface IAIEnhancementService {
-  invertTrope(sceneContext: string, trope: TropeMatch): Promise<ContractResult<string>>;
->>>>>>> origin/feat/trope-inverter-ai
 }
 
 // System Orchestration Seam Contracts
