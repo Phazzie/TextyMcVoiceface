@@ -1,9 +1,11 @@
-import React, { createContext, useState, ReactNode } from 'react';
+import React, { createContext, useState, ReactNode, useCallback, useRef } from 'react';
 
+// ... (NotificationType enum and Notification interface remain the same) ...
 export enum NotificationType {
   Success = 'success',
   Error = 'error',
   Warning = 'warning',
+  Info = 'info',
 }
 
 export interface Notification {
@@ -13,16 +15,20 @@ export interface Notification {
   duration?: number;
 }
 
-// Define a type for the callback function
-type EventCallback = (data?: any) => void;
-// Define a type for the unsubscribe function
-type UnsubscribeFunction = () => void;
+// Type definition for a listener callback function
+type ListenerCallback = (data: any) => void;
+
+// Type definition for the listeners object
+interface Listeners {
+  [eventName: string]: ListenerCallback[];
+}
 
 interface NotificationContextType {
   notifications: Notification[];
   addNotification: (message: string, type: NotificationType, duration?: number) => void;
   removeNotification: (id: string) => void;
-  on: (eventName: string, callback: EventCallback) => UnsubscribeFunction;
+  // Pub/Sub methods
+  on: (eventName: string, callback: ListenerCallback) => () => void; // Returns an unsubscribe function
   notify: (eventName: string, data?: any) => void;
 }
 
@@ -34,9 +40,8 @@ interface NotificationProviderProps {
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  // Use React.useRef to store subscribers so it doesn't trigger re-renders on change
-  // and persists across renders.
-  const subscribers = React.useRef<Map<string, EventCallback[]>>(new Map());
+  // Use a ref to store listeners so it doesn't trigger re-renders on change
+  const listeners = useRef<Listeners>({});
 
   const addNotification = (message: string, type: NotificationType, duration: number = 5000) => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -52,33 +57,42 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     setNotifications(prevNotifications => prevNotifications.filter(notification => notification.id !== id));
   };
 
-  const on = (eventName: string, callback: EventCallback): UnsubscribeFunction => {
-    if (!subscribers.current.has(eventName)) {
-      subscribers.current.set(eventName, []);
+  // Subscribe to an event
+  const on = useCallback((eventName: string, callback: ListenerCallback) => {
+    if (!listeners.current[eventName]) {
+      listeners.current[eventName] = [];
     }
-    subscribers.current.get(eventName)!.push(callback);
+    listeners.current[eventName].push(callback);
 
     // Return an unsubscribe function
     return () => {
-      const eventCallbacks = subscribers.current.get(eventName);
-      if (eventCallbacks) {
-        subscribers.current.set(
-          eventName,
-          eventCallbacks.filter(cb => cb !== callback)
-        );
-      }
+      listeners.current[eventName] = listeners.current[eventName].filter(cb => cb !== callback);
     };
-  };
+  }, []);
 
-  const notify = (eventName: string, data?: any) => {
-    const eventCallbacks = subscribers.current.get(eventName);
-    if (eventCallbacks) {
-      eventCallbacks.forEach(callback => callback(data));
+  // Publish an event
+  const notify = useCallback((eventName: string, data?: any) => {
+    if (listeners.current[eventName]) {
+      listeners.current[eventName].forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error(`Error in listener for event "${eventName}":`, error);
+        }
+      });
     }
+  }, []);
+
+  const contextValue = {
+    notifications,
+    addNotification,
+    removeNotification,
+    on,
+    notify,
   };
 
   return (
-    <NotificationContext.Provider value={{ notifications, addNotification, removeNotification, on, notify }}>
+    <NotificationContext.Provider value={contextValue}>
       {children}
     </NotificationContext.Provider>
   );
