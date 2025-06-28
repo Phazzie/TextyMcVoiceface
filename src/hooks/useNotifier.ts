@@ -8,8 +8,5 @@ export const useNotifier = () => {
     throw new Error('useNotifier must be used within a NotificationProvider');
   }
 
-  // Expose the entire context. Components can destructure what they need.
-  // e.g., const { addNotification } = useNotifier();
-  // e.g., const { on, notify } = useNotifier();
   return context;
 };
