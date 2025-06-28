@@ -1,11 +1,25 @@
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { 
   ContractResult, 
   StoryProject, 
   Character, 
-  WritingQualityReport,
-  AudioOutput 
+  // WritingQualityReport, // Commented out as it's not used in this file after recent changes
+  // AudioOutput // Commented out as it's not used in this file after recent changes
 } from '../../types/contracts';
+
+// Define types for credentials
+export interface SignInCredentials {
+  email?: string;
+  password?: string;
+  provider?: 'google' | 'github'; // Example providers
+}
+
+export interface SignUpCredentials {
+  email?: string;
+  password?: string;
+  // Add other fields like name, etc., if needed for sign-up
+}
+
 
 interface DatabaseProject {
   id: string;
@@ -55,7 +69,9 @@ interface DatabaseWritingReport {
 export class SupabaseService {
   private supabase: SupabaseClient;
   private currentUser: User | null = null;
+  private currentSession: Session | null = null;
   private isInitialized = false;
+  private authStateChangeListeners: Set<(event: AuthChangeEvent, session: Session | null) => void> = new Set();
 
   constructor() {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -72,28 +88,30 @@ export class SupabaseService {
   private async initializeAuth(): Promise<void> {
     try {
       // Get current session
-      const { data: { session } } = await this.supabase.auth.getSession();
-      this.currentUser = session?.user || null;
+      const { data: { session: initialSession } } = await this.supabase.auth.getSession();
+      this.currentUser = initialSession?.user ?? null;
+      this.currentSession = initialSession ?? null;
 
-      // If no user, sign in anonymously for demo mode
-      // if (!this.currentUser) {
-      //   const { data, error } = await this.supabase.auth.signInAnonymously();
-      //   if (error) {
-      //     console.warn('Anonymous auth failed, continuing without auth:', error);
-      //   } else {
-      //     this.currentUser = data.user;
-      //   }
-      // }
+      // Notify initial state to any early listeners
+      // This might be too early if listeners haven't subscribed yet,
+      // but onAuthStateChange will also fire.
+      this.notifyAuthStateChange('INITIALIZED', this.currentSession);
+
 
       // Listen for auth changes
       this.supabase.auth.onAuthStateChange((event, session) => {
-        this.currentUser = session?.user || null;
+        this.currentUser = session?.user ?? null;
+        this.currentSession = session ?? null;
+        this.notifyAuthStateChange(event, session);
       });
 
       this.isInitialized = true;
     } catch (error) {
       console.warn('Supabase auth initialization failed:', error);
-      this.isInitialized = true; // Continue without auth
+      // Still set isInitialized to true so the app doesn't hang,
+      // but auth features might not work.
+      this.isInitialized = true;
+      this.notifyAuthStateChange('SIGNED_OUT', null); // Notify as signed out due to error
     }
   }
 
@@ -103,10 +121,29 @@ export class SupabaseService {
     }
   }
 
+  // Method for components to subscribe to auth state changes
+  subscribeToAuthStateChange(callback: (event: AuthChangeEvent, session: Session | null) => void): () => void {
+    this.authStateChangeListeners.add(callback);
+    // Optionally, immediately call back with current state
+    // callback(this.currentSession ? 'SIGNED_IN' : 'SIGNED_OUT', this.currentSession);
+    return () => {
+      this.authStateChangeListeners.delete(callback);
+    };
+  }
+
+  private notifyAuthStateChange(event: AuthChangeEvent, session: Session | null): void {
+    this.authStateChangeListeners.forEach(listener => listener(event, session));
+  }
+
+
   // Project Management
   async saveProject(project: StoryProject): Promise<ContractResult<boolean>> {
     try {
       await this.waitForInitialization();
+
+      if (!this.currentUser) {
+        return { success: false, error: "User not authenticated. Cannot save project." };
+      }
 
       const dbProject: Partial<DatabaseProject> = {
         id: project.id,
@@ -116,7 +153,7 @@ export class SupabaseService {
         settings: project.settings,
         metadata: project.metadata,
         tags: project.tags,
-        user_id: this.currentUser?.id || null
+        user_id: this.currentUser.id // Now we can be sure currentUser is not null
       };
 
       const { error: projectError } = await this.supabase
@@ -383,19 +420,41 @@ export class SupabaseService {
   }
 
   // Auth methods
-  async signInWithEmail(email: string, password: string): Promise<ContractResult<User>> {
+  async signIn(credentials: SignInCredentials): Promise<ContractResult<User>> {
     try {
-      const { data, error } = await this.supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      let response;
+      if (credentials.provider) {
+        // OAuth sign-in
+        response = await this.supabase.auth.signInWithOAuth({
+          provider: credentials.provider,
+        });
+      } else if (credentials.email && credentials.password) {
+        // Email/password sign-in
+        response = await this.supabase.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        });
+      } else {
+        throw new Error('Invalid sign-in credentials. Provide email/password or a provider.');
+      }
+
+      const { data, error } = response;
 
       if (error) {
         throw error;
       }
 
-      this.currentUser = data.user;
-      return { success: true, data: data.user };
+      // For OAuth, data.user might be null initially if it redirects.
+      // onAuthStateChange will handle the user update upon redirect.
+      // For email/password, data.user should be populated.
+      if (data.user) {
+        this.currentUser = data.user;
+        this.currentSession = data.session;
+      }
+      // If data.session is null but user exists (e.g. OAuth redirect where session is picked up by listener),
+      // onAuthStateChange handles setting currentSession.
+
+      return { success: true, data: data.user! }; // User might be null for OAuth redirects, consumer should handle
     } catch (error) {
       return {
         success: false,
@@ -404,22 +463,28 @@ export class SupabaseService {
     }
   }
 
-  async signUp(email: string, password: string): Promise<ContractResult<User>> {
+  async signUp(credentials: SignUpCredentials): Promise<ContractResult<User>> {
     try {
+      if (!credentials.email || !credentials.password) {
+        throw new Error('Email and password are required for sign-up.');
+      }
       const { data, error } = await this.supabase.auth.signUp({
-        email,
-        password
+        email: credentials.email,
+        password: credentials.password,
+        // options: { data: { full_name: credentials.fullName } } // Example of passing additional data
       });
 
       if (error) {
         throw error;
       }
 
+      // User might require confirmation, so data.user might have session null initially.
+      // onAuthStateChange will reflect the user state.
       if (data.user) {
         this.currentUser = data.user;
+        this.currentSession = data.session;
       }
-
-      return { success: true, data: data.user! };
+      return { success: true, data: data.user! }; // User might be null if confirmation is needed.
     } catch (error) {
       return {
         success: false,
@@ -437,6 +502,8 @@ export class SupabaseService {
       }
 
       this.currentUser = null;
+      this.currentSession = null;
+      // onAuthStateChange will also fire, but good to clear it here too.
       return { success: true, data: true };
     } catch (error) {
       return {
@@ -447,7 +514,13 @@ export class SupabaseService {
   }
 
   getCurrentUser(): User | null {
-    return this.currentUser;
+    // Ensure this returns the user from the latest session state if possible,
+    // though this.currentUser is updated by onAuthStateChange.
+    return this.currentSession?.user ?? this.currentUser ?? null;
+  }
+
+  getUserSession(): Session | null {
+    return this.currentSession;
   }
 
   // Test connection

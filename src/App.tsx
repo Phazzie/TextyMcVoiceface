@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Headphones, Sparkles, Book, Settings, FileCheck, BarChart3, Mic, FolderOpen, Database, Shield, LogOut } from 'lucide-react';
-import { User } from '@supabase/supabase-js';
+// User type might still be needed if we pass user object around, but useAuth provides it.
+// import { User } from '@supabase/supabase-js';
+import { useAuth } from './contexts/AuthContext'; // Import useAuth
 import { SeamManager } from './services/SeamManager';
 import { SystemOrchestrator } from './services/implementations/SystemOrchestrator';
 import { TextAnalysisEngine } from './services/implementations/TextAnalysisEngine';
@@ -13,9 +15,13 @@ import { AudioControlsManager } from './services/implementations/AudioControlsMa
 import { VoiceCustomizer as VoiceCustomizerService } from './services/implementations/VoiceCustomizer';
 import { TextEditor } from './services/implementations/TextEditor';
 import { ProjectManager as ProjectManagerService } from './services/implementations/ProjectManager';
+// supabaseService direct import might still be needed for non-auth specific calls, if any.
+// For auth, useAuth will be the primary interface.
 import { supabaseService } from './services/implementations/SupabaseService';
 import { secureConfig } from './services/implementations/SecureConfigManager';
-import { AuthPage } from './components/AuthPage'; // Added AuthPage import
+// AuthPage import should be from the new location if it was different, but it seems correct.
+import AuthPage from './components/auth/AuthPage'; // Corrected path based on earlier step
+import UserProfileButton from './components/auth/UserProfileButton'; // Import UserProfileButton
 import { StoryInput } from './components/StoryInput';
 import { ProcessingStatus } from './components/ProcessingStatus';
 import { CharacterList } from './components/CharacterList';
@@ -45,43 +51,29 @@ function App() {
   const [activeView, setActiveView] = useState<'audiobook' | 'analysis' | 'progress' | 'voices'>('audiobook');
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [currentProject, setCurrentProject] = useState<StoryProject | null>(null);
-  const [supabaseConnected, setSupabaseConnected] = useState(false);
+  const [supabaseConnected, setSupabaseConnected] = useState(false); // This can remain for non-auth Supabase features
   const [initializationStatus, setInitializationStatus] = useState<string>('Initializing...');
-  const [authUser, setAuthUser] = useState<User | null>(null); // Added authUser state
-  const [authLoading, setAuthLoading] = useState(true); // Added authLoading state
 
-  // Initialize services and auth
+  const { user, session, isLoading: authIsLoading, error: authError, signOut } = useAuth(); // Use useAuth hook
+
+  // Initialize non-auth services
   useEffect(() => {
-    // Initialize core app services
     initializeApp();
+  }, []);
 
-    // Initialize and manage auth state
-    setAuthLoading(true);
-    supabaseService.waitForInitialization().then(() => {
-      setAuthUser(supabaseService.getCurrentUser());
-      setAuthLoading(false);
-
-      const { data: authListener } = supabaseService.supabase.auth.onAuthStateChange(
-        (event, session) => {
-          setAuthUser(session?.user ?? null);
-          if (event === 'SIGNED_OUT') {
-            handleStartOver(); // Reset app state on sign out
-          }
-          // Potentially handle SIGNED_IN for data refresh if needed in future
-          // e.g., if (event === 'SIGNED_IN') { loadUserProjects(); }
-        }
-      );
-
-      return () => {
-        // Cleanup listener on component unmount
-        authListener?.subscription.unsubscribe();
-      };
-    });
-  }, []); // Empty dependency array means it runs once on mount
+  // Effect to handle user state changes (e.g., on sign-out)
+  useEffect(() => {
+    if (!authIsLoading && !user) {
+      // User signed out or session expired
+      handleStartOver(); // Reset app state
+    }
+    // Potentially load user-specific data when user object changes and is present
+    // if (user) { loadUserProjects(); }
+  }, [user, authIsLoading]);
 
   const initializeApp = async () => {
     try {
-      setInitializationStatus('Setting up secure configuration...');
+      setInitializationStatus('Setting up core services...');
       const seamManager = SeamManager.getInstance();
       // Register core services
       seamManager.registerTextAnalysisEngine(new TextAnalysisEngine());
@@ -138,11 +130,7 @@ function App() {
     }
   };
 
-  const handleAuthSuccess = (user: User) => {
-    setAuthUser(user);
-    // After successful login, could trigger loading user-specific data if needed
-    // e.g., loadUserProjects();
-  };
+  // handleAuthSuccess is no longer needed as AuthProvider manages this.
 
   const setupElevenLabs = async (apiKey: string) => {
     try {
@@ -400,32 +388,39 @@ function App() {
     }
   };
 
-  // Conditional Rendering for Auth
-  if (authLoading) {
+  // Conditional Rendering for Auth using useAuth hook
+  if (authIsLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }} className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         <div className="animate-spin w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
-        <h2 className="text-xl font-semibold text-gray-700">Loading authentication status...</h2>
-        {initializationStatus && <p className="text-sm text-gray-500 mt-2">{initializationStatus}</p>}
+        <h2 className="text-xl font-semibold text-gray-700">Authenticating...</h2>
+        {/* Display non-auth init status if it's still relevant */}
+        {initializationStatus && !initializationStatus.includes('ready!') && <p className="text-sm text-gray-500 mt-2">{initializationStatus}</p>}
       </div>
     );
   }
 
-  // If Supabase is intended to be used (connected) and no user is authenticated, show AuthPage
-  if (supabaseConnected && !authUser) {
-    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+  // If not loading and no user, show AuthPage
+  // AuthPage no longer needs onAuthSuccess prop
+  if (!user) {
+    return <AuthPage />;
   }
 
-  // Original App JSX (rendered if not authLoading, and either supabase not connected or user is authenticated)
+  // User is authenticated, render the main application
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Initialization Status (can still be shown if relevant, e.g., non-auth related init messages) */}
+      {/* Initialization Status for non-auth related items */}
       {initializationStatus && !initializationStatus.includes('ready!') && !initializationStatus.includes('Supabase connected') && (
         <div className="fixed top-4 right-4 z-50 bg-white shadow-lg rounded-lg p-4 border-l-4 border-blue-500">
           <div className="flex items-center space-x-2">
             <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
             <span className="text-sm font-medium text-gray-700">{initializationStatus}</span>
           </div>
+        </div>
+      )}
+       {authError && (
+        <div className="fixed top-4 right-4 z-50 bg-red-100 text-red-700 shadow-lg rounded-lg p-4 border-l-4 border-red-500">
+          Auth Error: {authError}
         </div>
       )}
 
@@ -458,33 +453,21 @@ function App() {
             
             <div className="flex items-center space-x-3">
               {/* Project Management Button */}
-              <button
-                onClick={() => setShowProjectManager(true)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200 flex items-center space-x-2"
-              >
-                <FolderOpen className="w-4 h-4" />
-                <span>Projects</span>
-              </button>
-
-              {/* Logout Button */}
-              {authUser && supabaseConnected && (
+              {user && ( // Show only if user is logged in
                 <button
-                  onClick={async () => {
-                    const { error } = await supabaseService.signOut();
-                    if (error) {
-                      console.error("Error signing out:", error);
-                      // Optionally show an error message to the user
-                    }
-                    // onAuthStateChange listener in useEffect will handle setAuthUser(null) and handleStartOver()
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 rounded-lg transition-all duration-200 flex items-center space-x-2"
+                  onClick={() => setShowProjectManager(true)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200 flex items-center space-x-2"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span>Logout ({authUser.email?.substring(0, authUser.email.indexOf('@'))})</span>
+                  <FolderOpen className="w-4 h-4" />
+                  <span>Projects</span>
                 </button>
               )}
 
-              {(currentStage === 'complete' || currentStage === 'input') && (
+              {/* User Profile/Logout Button */}
+              {user && <UserProfileButton />}
+
+              {/* View navigation buttons - show if user is logged in */}
+              {user && (currentStage === 'complete' || currentStage === 'input') && (
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setActiveView('audiobook')}
@@ -715,19 +698,19 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-gray-600">
             <p>© 2024 Story Voice Studio. AI-powered audiobook generation with secure cloud storage.</p>
-            {supabaseConnected && authUser && (
+            {supabaseConnected && user && ( // Check user from useAuth
               <p className="text-sm mt-2 text-green-600">
                 <Database className="w-4 h-4 inline mr-1" />
-                Logged in as: {authUser.email} (Cloud Active)
+                Logged in as: {user.email} (Cloud Active)
               </p>
             )}
-            {supabaseConnected && !authUser && (
+            {supabaseConnected && !user && ( // Check user from useAuth
               <p className="text-sm mt-2 text-yellow-600">
                 <Database className="w-4 h-4 inline mr-1" />
                 Cloud available. Please login to save projects to the cloud.
               </p>
             )}
-            {!supabaseConnected && (
+            {!supabaseConnected && ( // This part remains the same
               <p className="text-sm mt-2 text-gray-500">
                 Local mode. Cloud features disabled.
               </p>
