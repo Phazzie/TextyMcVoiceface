@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Headphones, Sparkles, Book, Settings, FileCheck, BarChart3, Mic, FolderOpen, Database, Shield, LogOut, BookOpen } from 'lucide-react'; // Added BookOpen
-import { User } from '@supabase/supabase-js';
-import { useAuth } from './contexts/AuthContext'; // Import useAuth
+import { useState, useEffect } from 'react';
+import { Headphones, Sparkles, Book, Settings, FileCheck, Mic, FolderOpen, Database, Shield, BookOpen } from 'lucide-react';
+import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { SeamManager } from './services/SeamManager';
 import { SystemOrchestrator } from './services/implementations/SystemOrchestrator';
 import { TextAnalysisEngine } from './services/implementations/TextAnalysisEngine';
@@ -20,7 +19,7 @@ import { AIEnhancementService } from './services/implementations/AIEnhancementSe
 import { supabaseService } from './services/implementations/SupabaseService';
 import { secureConfig } from './services/implementations/SecureConfigManager';
 // AuthPage import should be from the new location if it was different, but it seems correct.
-import AuthPage from './components/auth/AuthPage'; // Corrected path based on earlier step
+import { AuthPage } from './components/AuthPage';
 import UserProfileButton from './components/auth/UserProfileButton'; // Import UserProfileButton
 import { StoryInput } from './components/StoryInput';
 import { ProcessingStatus } from './components/ProcessingStatus';
@@ -32,9 +31,8 @@ import { ProgressDashboard } from './components/ProgressDashboard';
 import { VoiceCustomizer } from './components/VoiceCustomizer';
 import { ProjectManager } from './components/ProjectManager';
 import { InteractiveTextDisplay } from './components/InteractiveTextDisplay'; // Added
-import { AIEnhancementService } from './services/implementations/AIEnhancementService'; // Added
 import { ProcessingStatus as ProcessingStatusType, AudioOutput, Character, VoiceAssignment, WritingQualityReport as QualityReportType, VoiceProfile, StoryProject, TextSegment, IAIEnhancementService } from './types/contracts'; // Added TextSegment, IAIEnhancementService
-import { NotificationProvider } from './contexts/NotificationContext';
+import { NotificationProvider, NotificationType } from './contexts/NotificationContext';
 import NotificationsContainer from './components/NotificationsContainer';
 import { useNotifier } from './hooks/useNotifier';
 
@@ -62,7 +60,7 @@ function App() {
   const [supabaseConnected, setSupabaseConnected] = useState(false); // This can remain for non-auth Supabase features
   const [initializationStatus, setInitializationStatus] = useState<string>('Initializing...');
 
-  const { user, session, isLoading: authIsLoading, error: authError, signOut } = useAuth(); // Use useAuth hook
+  const { user, isLoading: authIsLoading, error: authError } = useAuth(); // Use useAuth hook
 
   // Initialize non-auth services
   useEffect(() => {
@@ -109,7 +107,7 @@ function App() {
         setInitializationStatus('✅ Supabase connected successfully!');
       } else {
         console.warn('Supabase connection failed:', connectionTest.error);
-         addNotification(`Supabase connection failed: ${connectionTest.error}. Some cloud features may be unavailable.`, 'error');
+         addNotification(`Supabase connection failed: ${connectionTest.error}. Some cloud features may be unavailable.`, NotificationType.Error);
         setInitializationStatus('⚠️ Using local storage (Supabase unavailable)');
       }
       
@@ -123,7 +121,7 @@ function App() {
         seamManager.registerAudioGenerationPipeline(new AudioGenerationPipeline());
         setUseElevenLabs(false);
         if (!elevenLabsKeyResult.success) {
-          addNotification(`Could not retrieve ElevenLabs API key: ${elevenLabsKeyResult.error}`, 'warning');
+          addNotification(`Could not retrieve ElevenLabs API key: ${elevenLabsKeyResult.error}`, NotificationType.Warning);
         }
       }
 
@@ -132,20 +130,20 @@ function App() {
       const openAIApiKeyResult = await secureConfig.getOpenAIApiKey();
       if (openAIApiKeyResult.success && openAIApiKeyResult.data) {
         try {
-          const aiEnhancementService = new AIEnhancementService(openAIApiKeyResult.data);
+          const aiEnhancementService = new AIEnhancementService();
           seamManager.registerAIEnhancementService(aiEnhancementService);
-          addNotification('AI Trope Inverter enabled.', 'info');
+          addNotification('AI Trope Inverter enabled.', NotificationType.Success);
           setInitializationStatus('AI Trope Inverter ready!');
         } catch (e) {
           console.error('Failed to initialize AIEnhancementService:', e);
-          addNotification(`Failed to initialize AI Trope Inverter: ${e instanceof Error ? e.message : 'Unknown error'}. Trope inversion will be unavailable.`, 'error');
+          addNotification(`Failed to initialize AI Trope Inverter: ${e instanceof Error ? e.message : 'Unknown error'}. Trope inversion will be unavailable.`, NotificationType.Error);
           setInitializationStatus('AI Trope Inverter disabled.');
         }
       } else {
         if (!openAIApiKeyResult.success) {
-           addNotification(`Could not retrieve OpenAI API key: ${openAIApiKeyResult.error}. Trope inversion will be unavailable.`, 'warning');
+           addNotification(`Could not retrieve OpenAI API key: ${openAIApiKeyResult.error}. Trope inversion will be unavailable.`, NotificationType.Warning);
         } else {
-          addNotification('OpenAI API key not set. AI Trope Inverter will be unavailable. Configure it via settings if available.', 'info');
+          addNotification('OpenAI API key not set. AI Trope Inverter will be unavailable. Configure it via settings if available.', NotificationType.Info);
         }
         setInitializationStatus('AI Trope Inverter disabled (no API key).');
         console.log('OpenAI API key not found. AIEnhancementService will not be available.');
@@ -169,7 +167,7 @@ function App() {
       
     } catch (error) {
       console.error('App initialization failed:', error);
-       addNotification(`App initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}. Some features may not work correctly.`, 'error');
+       addNotification(`App initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}. Some features may not work correctly.`, NotificationType.Error);
       setInitializationStatus('❌ Initialization failed - some features may not work');
     }
   };
@@ -188,7 +186,7 @@ function App() {
         console.log('✅ ElevenLabs initialized successfully!');
       } else {
         console.error('Failed to initialize ElevenLabs:', initResult.error);
-         addNotification(`Failed to initialize ElevenLabs AI voices: ${initResult.error}. Falling back to standard voices.`, 'warning');
+         addNotification(`Failed to initialize ElevenLabs AI voices: ${initResult.error}. Falling back to standard voices.`, NotificationType.Warning);
         // Fallback to browser speech
         seamManager.registerAudioGenerationPipeline(new AudioGenerationPipeline());
         setUseElevenLabs(false);
@@ -267,12 +265,12 @@ function App() {
           setTextSegments([]); // Clear segments if parsing failed
           setCharacters([]);
           setVoiceAssignments([]);
-           addNotification(`Text parsing failed: ${parseResult.error || 'Unknown error'}. Some features may be limited.`, 'warning');
+           addNotification(`Text parsing failed: ${parseResult.error || 'Unknown error'}. Some features may be limited.`, NotificationType.Warning);
         }
 
         // Generate writing quality report
         const qualityAnalyzer = new WritingQualityAnalyzer();
-        const qualityResult = await qualityAnalyzer.generateQualityReport(text);
+        const qualityResult = await qualityAnalyzer.generateFullReport(text);
         if (qualityResult.success && qualityResult.data) {
           setQualityReport(qualityResult.data);
         }
@@ -280,12 +278,12 @@ function App() {
         setCurrentStage('complete');
       } else {
         console.error('Processing failed:', result.error);
-         addNotification(`Audiobook processing failed: ${result.error || 'Unknown error'}. Please try again.`, 'error');
+         addNotification(`Audiobook processing failed: ${result.error || 'Unknown error'}. Please try again.`, NotificationType.Error);
         setCurrentStage('input');
       }
     } catch (error) {
       console.error('Processing error:', error);
-       addNotification(`An unexpected error occurred during processing: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, 'error');
+       addNotification(`An unexpected error occurred during processing: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, NotificationType.Error);
       setCurrentStage('input');
     }
   };
@@ -423,7 +421,7 @@ function App() {
           return;
         } else {
           console.warn('Supabase save failed, falling back to local storage:', result.error);
-           addNotification(`Cloud save failed: ${result.error || 'Unknown reason'}. Attempting local save.`, 'warning');
+           addNotification(`Cloud save failed: ${result.error || 'Unknown reason'}. Attempting local save.`, NotificationType.Warning);
         }
       }
 
@@ -437,11 +435,11 @@ function App() {
         console.log('Project saved locally successfully');
       } else {
         console.error('Failed to save project:', result.error);
-         addNotification(`Local save failed: ${result.error || 'Unknown error'}. Please try again.`, 'error');
+         addNotification(`Local save failed: ${result.error || 'Unknown error'}. Please try again.`, NotificationType.Error);
       }
     } catch (error) {
       console.error('Error saving project:', error);
-       addNotification(`An unexpected error occurred while saving the project: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, 'error');
+       addNotification(`An unexpected error occurred while saving the project: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, NotificationType.Error);
     }
   };
 
@@ -461,11 +459,13 @@ function App() {
   }
 
   // If not loading and no user, show AuthPage
-  // AuthPage no longer needs onAuthSuccess prop
   if (!user) {
     return (
       <NotificationProvider>
-        <AuthPage />
+        <AuthPage onAuthSuccess={(user) => {
+          // The auth context will handle the user state update
+          console.log('User authenticated:', user.email);
+        }} />
         <NotificationsContainer />
       </NotificationProvider>
     );
@@ -682,7 +682,7 @@ function App() {
 
             <StoryInput 
               onTextSubmit={handleTextSubmit} 
-              isProcessing={currentStage === 'processing'}
+              isProcessing={false}
               initialText={originalText}
             />
 
@@ -755,10 +755,7 @@ function App() {
         )}
 
         {currentStage === 'complete' && activeView === 'analysis' && qualityReport && (
-          <WritingQualityReport 
-            report={qualityReport}
-            originalText={originalText}
-          />
+          <WritingQualityReport />
         )}
 
         {currentStage === 'complete' && activeView === 'voices' && (

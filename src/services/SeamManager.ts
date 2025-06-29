@@ -9,12 +9,8 @@ import {
   IVoiceCustomizer,
   ITextEditor,
   IProjectManager,
-<<<<<<< HEAD
   IAIEnhancementService,
   IAppConfigService
-=======
-  IAIEnhancementService
->>>>>>> origin/feat/trope-inverter-ai
 } from '../types/contracts';
 import {
   ICacheManager,
@@ -38,10 +34,7 @@ export class SeamManager {
   private textEditor?: ITextEditor;
   private projectManager?: IProjectManager;
   private aiEnhancementService?: IAIEnhancementService;
-<<<<<<< HEAD
   private appConfigService?: IAppConfigService;
-=======
->>>>>>> origin/feat/trope-inverter-ai
 
   private constructor() { }
 
@@ -55,35 +48,44 @@ export class SeamManager {
   // Component registration
   registerTextAnalysisEngine(engine: ITextAnalysisEngine): void {
     this.textAnalysisEngine = engine;
+    SeamManager.services.set('TextAnalysisEngine', engine);
   }
   registerCharacterDetectionSystem(system: ICharacterDetectionSystem): void {
     this.characterDetectionSystem = system;
+    SeamManager.services.set('CharacterDetectionSystem', system);
   }
   registerVoiceAssignmentLogic(logic: IVoiceAssignmentLogic): void {
     this.voiceAssignmentLogic = logic;
+    SeamManager.services.set('VoiceAssignmentLogic', logic);
   }
   registerAudioGenerationPipeline(pipeline: IAudioGenerationPipeline): void {
     this.audioGenerationPipeline = pipeline;
+    SeamManager.services.set('AudioGenerationPipeline', pipeline);
   }
   registerSystemOrchestrator(orchestrator: ISystemOrchestrator): void {
     this.systemOrchestrator = orchestrator;
+    SeamManager.services.set('SystemOrchestrator', orchestrator);
   }
   registerWritingQualityAnalyzer(analyzer: IWritingQualityAnalyzer): void {
     this.writingQualityAnalyzer = analyzer;
+    SeamManager.services.set('WritingQualityAnalyzer', analyzer);
   }
   registerAudioControlsManager(manager: IAudioControlsManager): void {
     this.audioControlsManager = manager;
+    SeamManager.services.set('AudioControlsManager', manager);
   }
   registerVoiceCustomizer(customizer: IVoiceCustomizer): void {
     this.voiceCustomizer = customizer;
+    SeamManager.services.set('VoiceCustomizer', customizer);
   }
   registerTextEditor(editor: ITextEditor): void {
     this.textEditor = editor;
+    SeamManager.services.set('TextEditor', editor);
   }
   registerProjectManager(manager: IProjectManager): void {
     this.projectManager = manager;
+    SeamManager.services.set('ProjectManager', manager);
   }
-<<<<<<< HEAD
   registerAIEnhancementService(service: IAIEnhancementService): void {
     this.aiEnhancementService = service;
     SeamManager.services.set('AIEnhancementService', service);
@@ -103,13 +105,7 @@ export class SeamManager {
   static isRegistered(serviceName: string): boolean {
     return SeamManager.services.has(serviceName);
   }
-=======
 
-  registerAIEnhancementService(service: IAIEnhancementService): void {
-    this.aiEnhancementService = service;
-  }
-
->>>>>>> origin/feat/trope-inverter-ai
   // Component access
   getTextAnalysisEngine(): ITextAnalysisEngine {
     if (!this.textAnalysisEngine) throw new Error('TextAnalysisEngine not registered');
@@ -151,30 +147,17 @@ export class SeamManager {
     if (!this.projectManager) throw new Error('ProjectManager not registered');
     return this.projectManager;
   }
-<<<<<<< HEAD
   getAIEnhancementService(): IAIEnhancementService {
     if (!this.aiEnhancementService) throw new Error('AIEnhancementService not registered');
     return this.aiEnhancementService;
   }
   getAppConfigService(): IAppConfigService {
     if (!this.appConfigService) {
-      if (SeamManager.isRegistered('AppConfigService')) {
-        this.appConfigService = SeamManager.get<IAppConfigService>('AppConfigService');
-        return this.appConfigService!;
-      }
       throw new Error('AppConfigService not registered');
     }
     return this.appConfigService;
   }
-=======
 
-  getAIEnhancementService(): IAIEnhancementService | undefined {
-    // This service is optional, so we don't throw if it's not registered.
-    // The UI will handle cases where it's undefined.
-    return this.aiEnhancementService;
-  }
-
->>>>>>> origin/feat/trope-inverter-ai
   // Health check
   isFullyConfigured(): boolean {
     return !!(
