@@ -139,6 +139,7 @@ export interface StoryProject {
   metadata: ProjectMetadata;
   tags: string[];
   version: string;
+  user_id?: string; // Added for user authentication
 }
 
 export interface ProjectSettings {

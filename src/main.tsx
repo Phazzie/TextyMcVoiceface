@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import { AuthProvider } from './contexts/AuthContext.tsx'; // Adjust path as needed
 import './index.css';
 import { SeamManager } from './services/SeamManager.ts';
 import { CacheManagerStub } from './services/stubs/CacheManagerStub.ts';
@@ -25,6 +26,8 @@ window.addEventListener('unhandledrejection', (event) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>
 );
