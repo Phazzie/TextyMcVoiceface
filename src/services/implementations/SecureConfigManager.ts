@@ -58,7 +58,7 @@ export class SecureConfigManager {
     this.config = {
       ...storedConfig,
       ...Object.fromEntries(
-        Object.entries(envConfig).filter(([_, value]) => value !== undefined)
+        Object.entries(envConfig).filter(([_entryKey, value]) => value !== undefined) // Changed _ to _entryKey
       )
     };
   }

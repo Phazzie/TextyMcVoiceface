@@ -14,8 +14,8 @@ export interface ICacheManager {
   invalidateAudioCache(pattern?: string): Promise<ContractResult<number>>;
   
   // Text analysis caching
-  cacheAnalysisResult(textHash: string, result: any, analysisType: string): Promise<ContractResult<boolean>>;
-  getCachedAnalysisResult(textHash: string, analysisType: string): Promise<ContractResult<any>>;
+  cacheAnalysisResult(textHash: string, result: unknown, analysisType: string): Promise<ContractResult<boolean>>; // TODO: Define specific type for analysis result if possible
+  getCachedAnalysisResult(textHash: string, analysisType: string): Promise<ContractResult<unknown>>; // TODO: Define specific type for analysis result if possible
   
   // Voice profile caching
   cacheVoiceProfile(characterId: string, profile: VoiceProfile): Promise<ContractResult<boolean>>;
@@ -176,7 +176,7 @@ export interface PerformanceMetric {
   type: 'processing_time' | 'memory_usage' | 'cache_hit_rate' | 'user_interaction' | 'network' | 'render_time';
   value: number;
   unit: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   severity?: 'normal' | 'warning' | 'critical';
   threshold?: number;
 }
@@ -273,7 +273,7 @@ export interface ProcessingJob {
   actualDuration?: number;
   currentStep?: string;
   totalSteps?: number;
-  result?: any;
+  result?: unknown; // TODO: Define specific type for job result if possible
   error?: string;
   retryCount?: number;
   maxRetries?: number;

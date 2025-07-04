@@ -30,7 +30,8 @@ export class AudioControlsManager implements IAudioControlsManager {
 
   private async initializeAudioContext(): Promise<void> {
     try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const PatchedWindow = window as Window & { webkitAudioContext?: typeof AudioContext };
+      this.audioContext = new (PatchedWindow.AudioContext || PatchedWindow.webkitAudioContext)();
     } catch (error) {
       console.warn('AudioContext not available:', error);
     }

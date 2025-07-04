@@ -634,18 +634,22 @@ export class ProjectManager implements IProjectManager {
         };
       }
 
-      let exportData: any = { ...project };
+      const exportData: Record<string, unknown> = { ...project };
 
       // Remove audio data if not requested
-      if (!options.includeAudio && exportData.audioOutput) {
-        exportData.audioOutput = {
-          ...exportData.audioOutput,
-          audioFile: null,
-          segments: exportData.audioOutput.segments.map((seg: any) => ({
-            ...seg,
-            audioData: null
-          }))
-        };
+      if (!options.includeAudio && (exportData.audioOutput as AudioOutput | undefined)) { // Added type assertion for safety
+        // Assuming exportData.audioOutput is of type AudioOutput | undefined
+        const audioOutput = exportData.audioOutput as AudioOutput | undefined;
+        if (audioOutput) {
+            exportData.audioOutput = {
+            ...audioOutput,
+            audioFile: null,
+            segments: audioOutput.segments.map((seg: AudioSegment) => ({ // Typed seg as AudioSegment
+                ...seg,
+                audioData: null
+            }))
+            };
+        }
       }
 
       // Remove settings if not requested
@@ -715,7 +719,7 @@ export class ProjectManager implements IProjectManager {
 
   async importProject(importData: ProjectImport): Promise<ContractResult<StoryProject>> {
     try {
-      let projectData: any;
+      let projectData: unknown; // Changed any to unknown
 
       // Parse import data based on format
       switch (importData.format) {
@@ -726,9 +730,10 @@ export class ProjectManager implements IProjectManager {
               new TextDecoder().decode(importData.data as ArrayBuffer);
             projectData = JSON.parse(text);
           } catch (error) {
+            console.error("JSON parsing error during import:", error);
             return {
               success: false,
-              error: 'Invalid JSON format'
+              error: `Invalid JSON format: ${error instanceof Error ? error.message : 'Unknown parsing error'}`
             };
           }
           break;
@@ -799,7 +804,7 @@ export class ProjectManager implements IProjectManager {
   async exportAllProjects(options: ProjectExport): Promise<ContractResult<Blob>> {
     try {
       const allProjects = Array.from(this.projects.values());
-      const exportData = {
+      const exportData: Record<string, unknown> = { // Explicitly typed
         version: ProjectManager.VERSION,
         exportedAt: Date.now(),
         projects: allProjects,
@@ -949,9 +954,10 @@ export class ProjectManager implements IProjectManager {
       try {
         localStorage.setItem(backupKey, await this.blobToBase64(exportResult.data));
       } catch (error) {
+        console.error("Error saving backup to localStorage:", error);
         return {
           success: false,
-          error: 'Insufficient storage space for backup'
+          error: `Insufficient storage space for backup: ${error instanceof Error ? error.message : 'Unknown storage error'}`
         };
       }
 
@@ -1063,7 +1069,7 @@ export class ProjectManager implements IProjectManager {
         project.customVoices = template.voiceTemplates.reduce((acc, voice) => {
           acc[voice.name] = voice;
           return acc;
-        }, {} as Record<string, any>);
+        }, {} as Record<string, VoiceProfile>); // Changed any to VoiceProfile
       }
 
       await this.saveProject(project);

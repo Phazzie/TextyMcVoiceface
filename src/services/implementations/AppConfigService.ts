@@ -1,5 +1,5 @@
 import { ContractResult, IAppConfigService } from "../../types/contracts";
-import { SeamManager } from "../SeamManager"; // Required if this service depends on others, or for registration
+// import { SeamManager } from "../SeamManager"; // Not used directly in this file's active code
 
 export class AppConfigService implements IAppConfigService {
   private openAIApiKey: string | null = null;

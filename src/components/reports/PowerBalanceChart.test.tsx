@@ -34,7 +34,7 @@ describe('PowerBalanceChart', () => {
   });
 
   it('renders "no data" message when data is null', () => {
-    render(<PowerBalanceChart data={null as any} />); // Cast to any to test null
+    render(<PowerBalanceChart data={null as unknown as DialogueTurn[]} />); // Cast to test null
     expect(screen.getByText('No dialogue data to display power balance.')).toBeInTheDocument();
   });
 

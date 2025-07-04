@@ -14,7 +14,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioOutput, onDownloa
   const [volume, setVolume] = useState(1);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioUrl, setAudioUrl] = useState<string>('');
-  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
+  // const [showAdvancedControls, setShowAdvancedControls] = useState(false); // Unused state
 
   useEffect(() => {
     // Create object URL for the audio blob

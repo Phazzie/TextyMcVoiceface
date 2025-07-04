@@ -137,8 +137,8 @@ export const VoiceCustomizer: React.FC<VoiceCustomizerProps> = ({
         await audioRef.current.play();
         setIsPlayingPreview(true);
       }
-    } catch (error) {
-      setErrorMessage('Failed to play preview audio');
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to play preview audio');
     }
   };
 
@@ -247,8 +247,8 @@ export const VoiceCustomizer: React.FC<VoiceCustomizerProps> = ({
       } else {
         setErrorMessage(result.error || 'Failed to import settings');
       }
-    } catch (error) {
-      setErrorMessage('Invalid settings file format');
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Invalid settings file format');
     }
     
     // Clear file input

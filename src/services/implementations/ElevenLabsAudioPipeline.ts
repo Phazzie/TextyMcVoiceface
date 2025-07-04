@@ -89,7 +89,7 @@ export class ElevenLabsAudioPipeline implements IAudioGenerationPipeline {
       const processedText = this.addSSMLTags(segment.content, voice, segment.type);
 
       // Generate audio using ElevenLabs API
-      const audioBlob = await this.callElevenLabsAPI(processedText, elevenLabsVoice, voice);
+      const audioBlob = await this.callElevenLabsAPI(processedText, elevenLabsVoice); // Removed voice argument
       const duration = await this.estimateAudioDuration(processedText);
 
       const audioSegment: AudioSegment = {
@@ -287,7 +287,7 @@ export class ElevenLabsAudioPipeline implements IAudioGenerationPipeline {
     return processedText;
   }
 
-  private async callElevenLabsAPI(text: string, voice: ElevenLabsVoice, voiceProfile: VoiceProfile): Promise<Blob> {
+  private async callElevenLabsAPI(text: string, voice: ElevenLabsVoice): Promise<Blob> { // Removed voiceProfile
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice.voice_id}`, {
       method: 'POST',
       headers: {

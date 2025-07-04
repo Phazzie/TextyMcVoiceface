@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ContractResult, Character, IAIEnhancementService } from '../types/contracts'; // Assuming IAIEnhancementService might be needed here or passed differently
-import { X, ChevronsUpDown, Check } from 'lucide-react';
+import { X } from 'lucide-react'; // Removed ChevronsUpDown, Check
 
 interface PerspectiveShiftModalProps {
   isOpen: boolean;
@@ -66,8 +66,12 @@ export const PerspectiveShiftModal: React.FC<PerspectiveShiftModalProps> = ({
       } else {
         setError(result.error || 'Failed to rewrite text.');
       }
-    } catch (e: any) {
-      setError(e.message || 'An unexpected error occurred.');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('An unexpected error occurred.');
+      }
     } finally {
       setIsRewriting(false);
     }

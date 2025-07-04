@@ -14,7 +14,7 @@ export interface Notification {
   duration?: number;
 }
 
-type ListenerCallback = (data: any) => void;
+type ListenerCallback = (data: unknown) => void; // Changed any to unknown
 
 interface Listeners {
   [eventName: string]: ListenerCallback[];
@@ -25,7 +25,7 @@ interface NotificationContextType {
   addNotification: (message: string, type: NotificationType, duration?: number) => void;
   removeNotification: (id: string) => void;
   on: (eventName: string, callback: ListenerCallback) => () => void;
-  notify: (eventName: string, data?: any) => void;
+  notify: (eventName: string, data?: unknown) => void; // Changed any to unknown
 }
 
 export const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -59,7 +59,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     };
   }, []);
 
-  const notify = useCallback((eventName: string, data?: any) => {
+  const notify = useCallback((eventName: string, data?: unknown) => { // Changed any to unknown
     if (listeners.current[eventName]) {
       listeners.current[eventName].forEach(callback => {
         try {

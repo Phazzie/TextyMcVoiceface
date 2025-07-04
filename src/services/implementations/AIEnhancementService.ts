@@ -10,7 +10,7 @@ export class AIEnhancementService implements IAIEnhancementService {
       // methods will attempt to retrieve it again on-demand.
       this.appConfigService = SeamManager.getInstance().getAppConfigService();
     } catch (error) {
-      console.warn("AIEnhancementService: AppConfigService not found or not yet registered in SeamManager. It will be fetched on the first API call if available.");
+      console.warn("AIEnhancementService: AppConfigService not found or not yet registered in SeamManager during construction. It will be fetched on the first API call if available. Error details:", error);
     }
   }
 

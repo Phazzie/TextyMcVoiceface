@@ -4,7 +4,6 @@ import {
   Volume2, 
   VolumeX, 
   Play, 
-  Bookmark as BookmarkIcon, 
   Download, 
   RotateCcw,
   Trash2,

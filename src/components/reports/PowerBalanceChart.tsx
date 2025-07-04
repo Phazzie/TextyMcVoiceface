@@ -6,6 +6,9 @@ interface PowerBalanceChartProps {
 }
 
 export const PowerBalanceChart: React.FC<PowerBalanceChartProps> = ({ data }) => {
+  // Tooltip state must be declared at the top level
+  const [tooltip, setTooltip] = React.useState<{ x: number; y: number; turn: DialogueTurn } | null>(null);
+
   if (!data || data.length === 0) {
     return <div className="text-center p-4 text-gray-500">No dialogue data to display power balance.</div>;
   }
@@ -51,9 +54,6 @@ export const PowerBalanceChart: React.FC<PowerBalanceChartProps> = ({ data }) =>
       </g>
     );
   }
-
-  // Tooltip state
-  const [tooltip, setTooltip] = React.useState<{ x: number; y: number; turn: DialogueTurn } | null>(null);
 
   return (
     <div className="relative p-4 bg-white rounded-lg shadow" data-testid="power-balance-chart-container">

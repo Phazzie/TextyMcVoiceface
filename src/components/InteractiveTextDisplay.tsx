@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react'; // Removed useEffect
 import { Character, TextSegment, IAIEnhancementService } from '../types/contracts';
 import { PerspectiveShiftModal } from './PerspectiveShiftModal'; // Assuming it's in the same directory or path is adjusted
 import { Edit3 } from 'lucide-react'; // Icon for perspective shift

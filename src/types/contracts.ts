@@ -3,7 +3,7 @@ export interface ContractResult<T> {
   success: boolean;
   data?: T;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>; // Changed any to unknown
 }
 
 // Narrator Mode Configuration Contract
@@ -190,7 +190,7 @@ export interface ProjectHistory {
   timestamp: number;
   action: 'created' | 'opened' | 'saved' | 'exported' | 'deleted' | 'renamed';
   description: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>; // Changed any to unknown
 }
 
 export interface ProjectTemplate {
@@ -508,7 +508,7 @@ export interface TextFix {
   confidence: number;
   description: string;
   category: 'automatic' | 'suggestion' | 'manual';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>; // Changed any to unknown
 }
 
 export interface ChangeHistory {
@@ -533,7 +533,7 @@ export interface EditorAnnotation {
   severity: 'info' | 'warning' | 'error';
   message: string;
   category: string;
-  data?: any;
+  data?: unknown; // Changed any to unknown
   timestamp: number;
 }
 
@@ -570,7 +570,7 @@ export interface WritingIssue {
   category: string;
   confidence: number;
   source: 'writing_analyzer' | 'grammar_check' | 'style_check' | 'manual';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>; // Changed any to unknown
 }
 
 export interface EditorSettings {

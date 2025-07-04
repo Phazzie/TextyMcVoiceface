@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Headphones, Sparkles, Book, Settings, FileCheck, Mic, FolderOpen, Database, Shield, BookOpen } from 'lucide-react';
-import { useAuth, AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/AuthContext'; // Removed AuthProvider
 import { SeamManager } from './services/SeamManager';
 import { SystemOrchestrator } from './services/implementations/SystemOrchestrator';
 import { TextAnalysisEngine } from './services/implementations/TextAnalysisEngine';

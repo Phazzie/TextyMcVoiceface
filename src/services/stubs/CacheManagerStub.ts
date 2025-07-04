@@ -30,11 +30,11 @@ export class CacheManagerStub implements ICacheManager {
         throw new NotImplementedError('invalidateAudioCache is not implemented in the stub.');
     }
 
-    cacheAnalysisResult(_textHash: string, _result: any, _analysisType: string): Promise<ContractResult<boolean>> {
+    cacheAnalysisResult(_textHash: string, _result: unknown, _analysisType: string): Promise<ContractResult<boolean>> { // any to unknown
         throw new NotImplementedError('cacheAnalysisResult is not implemented in the stub.');
     }
 
-    getCachedAnalysisResult(_textHash: string, _analysisType: string): Promise<ContractResult<any>> {
+    getCachedAnalysisResult(_textHash: string, _analysisType: string): Promise<ContractResult<unknown>> { // any to unknown
         throw new NotImplementedError('getCachedAnalysisResult is not implemented in the stub.');
     }
 

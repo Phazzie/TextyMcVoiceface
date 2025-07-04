@@ -4,21 +4,15 @@ import {
   FolderOpen,
   Plus,
   Search,
-  Clock,
   FileText,
   Download,
-  Upload,
   Trash2,
   Copy,
-  Edit3,
   Tag,
-  Calendar,
-  Filter,
   Star,
   Archive,
   Settings,
   AlertCircle,
-  CheckCircle,
   Loader,
   X,
   MoreVertical
@@ -378,7 +372,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
             <div className="flex items-center space-x-2">
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as 'name' | 'created' | 'modified')}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="modified">Modified</option>
@@ -388,7 +382,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
 
               <select
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as any)}
+                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="desc">Newest First</option>

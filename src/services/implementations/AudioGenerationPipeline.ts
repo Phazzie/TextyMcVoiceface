@@ -18,9 +18,10 @@ export class AudioGenerationPipeline implements IAudioGenerationPipeline {
 
   private async initializeAudioContext(): Promise<void> {
     try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const PatchedWindow = window as Window & { webkitAudioContext?: typeof AudioContext };
+      this.audioContext = new (PatchedWindow.AudioContext || PatchedWindow.webkitAudioContext)();
     } catch (error) {
-      console.warn('AudioContext not available, using fallback methods');
+      console.warn('AudioContext not available, using fallback methods. Error:', error);
     }
   }
 
@@ -284,6 +285,7 @@ export class AudioGenerationPipeline implements IAudioGenerationPipeline {
           }
         }, 30000); // 30 second timeout
       } catch (error) {
+        console.warn('Error setting up MediaRecorder for speech synthesis, using fallback blob. Error:', error);
         // Fallback: create a simple blob
         const estimatedDuration = utterance.text.length * 100;
         const silentBuffer = new ArrayBuffer(estimatedDuration);
@@ -305,6 +307,7 @@ export class AudioGenerationPipeline implements IAudioGenerationPipeline {
       const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
       return audioBuffer.duration;
     } catch (error) {
+      console.warn('Failed to decode audio for duration calculation, using fallback estimation. Error:', error);
       // Fallback estimation
       return Math.max(1, audioBlob.size / 8000); // Very rough estimate
     }
@@ -348,6 +351,7 @@ export class AudioGenerationPipeline implements IAudioGenerationPipeline {
       // Convert buffer back to blob
       return await this.audioBufferToBlob(combinedBuffer);
     } catch (error) {
+      console.warn('Failed to combine audio blobs using AudioContext, using simple concatenation fallback. Error:', error);
       // Fallback: simple concatenation
       return new Blob(blobs, { type: 'audio/wav' });
     }

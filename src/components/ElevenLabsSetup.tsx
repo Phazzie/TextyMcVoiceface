@@ -37,7 +37,7 @@ export const ElevenLabsSetup: React.FC<ElevenLabsSetupProps> = ({
         throw new Error(`Invalid API key or connection failed: ${response.status}`);
       }
 
-      const userData = await response.json();
+      await response.json(); // Consume the JSON body, but userData is not used
       setSuccess(true);
       
       // Store API key in localStorage for persistence

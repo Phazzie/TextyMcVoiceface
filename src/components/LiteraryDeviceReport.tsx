@@ -105,29 +105,15 @@ const LiteraryDeviceReport: React.FC<LiteraryDeviceReportProps> = ({ devices }) 
   );
 };
 
-// Mock data for development and testing
-const mockLiteraryDevices: LiteraryDeviceInstance[] = [
-  { deviceType: 'Metaphor', textSnippet: "Her eyes were pools of the deepest blue.", explanation: "Compares eyes to pools without using 'like' or 'as'.", position: 10 },
-  { deviceType: 'Simile', textSnippet: "He runs like the wind.", explanation: "Compares running speed to wind using 'like'.", position: 50 },
-  { deviceType: 'Alliteration', textSnippet: "Silly snakes slither silently.", explanation: "Repetition of the 's' sound.", position: 100 },
-  { deviceType: 'Personification', textSnippet: "The wind whispered secrets through the trees.", explanation: "Gives human quality (whispering) to the wind.", position: 150 },
-  { deviceType: 'Hyperbole', textSnippet: "I'm so hungry I could eat a horse.", explanation: "Exaggeration for effect.", position: 200 },
-  { deviceType: 'Onomatopoeia', textSnippet: "The bee buzzed by.", explanation: "Word mimics a sound.", position: 250 },
-  { deviceType: 'Irony', textSnippet: "A pilot with a fear of heights.", explanation: "Situational irony.", position: 300 },
-  { deviceType: 'Foreshadowing', textSnippet: "The dark clouds gathered ominously, hinting at the storm to come.", explanation: "Suggests future events.", position: 350 },
-  { deviceType: 'Imagery', textSnippet: "The air was filled with the scent of freshly baked bread and blooming lilacs.", explanation: "Appeals to the sense of smell (olfactory imagery).", position: 400 },
-  { deviceType: 'Symbolism', textSnippet: "The dove, a symbol of peace, flew overhead.", explanation: "An object representing an abstract idea.", position: 420 },
-   { deviceType: 'Juxtaposition', textSnippet: "It was the best of times, it was the worst of times.", explanation: "Placing contrasting ideas side by side.", position: 20},
-  { deviceType: 'Assonance', textSnippet: "The rain in Spain falls mainly on the plain.", explanation: "Repetition of vowel sounds.", position: 60},
-  { deviceType: 'Consonance', textSnippet: "Mike likes his new bike.", explanation: "Repetition of consonant sounds.", position: 70},
-  { deviceType: 'Paradox', textSnippet: "This is the beginning of the end.", explanation: "A statement that appears self-contradictory but contains a deeper truth.", position: 210},
-  { deviceType: 'Oxymoron', textSnippet: "Living dead.", explanation: "Two contradictory terms used together.", position: 220},
-  { deviceType: 'Anaphora', textSnippet: "We shall not flag or fail. We shall go on to the end. We shall fight in France.", explanation: "Repetition of a word or phrase at the beginning of successive clauses.", position: 360},
-  { deviceType: 'Motif', textSnippet: "Throughout the novel, the recurring image of a broken clock highlighted the protagonist's obsession with lost time.", explanation: "A recurring element that has symbolic significance.", position: 410},
-];
+// Mock data for development and testing (Data removed as it's unused in this file)
+// const mockLiteraryDevices: LiteraryDeviceInstance[] = [
+//   { deviceType: 'Metaphor', textSnippet: "Her eyes were pools of the deepest blue.", explanation: "Compares eyes to pools without using 'like' or 'as'.", position: 10 },
+//   ... (other mock devices)
+// ];
 
 // Example of how to use the component with mock data:
 // const App = () => <LiteraryDeviceReport devices={mockLiteraryDevices} />;
+// Note: mockLiteraryDevices would need to be defined or imported if this example were active.
 
 export default LiteraryDeviceReport;
 // To make this component usable, you would typically import it into another component

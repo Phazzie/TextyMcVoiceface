@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'; // Added useCallback
+import React, { useState, useRef, useEffect } from 'react'; // Removed useCallback
 import { Upload, FileText, Mic, Play, Wand2 } from 'lucide-react'; // Added Wand2
 import { PerspectiveShiftModal } from './modals/PerspectiveShiftModal'; // Added import
 import { Character } from '../types/contracts'; // Added import
@@ -24,7 +24,7 @@ export const StoryInput: React.FC<StoryInputProps> = ({
   // State for Perspective Shift
   const [isPerspectiveModalOpen, setIsPerspectiveModalOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
-  const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
+  // const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null); // Unused state
   // For now, assume the original character is the one most frequent in the selected text or a default.
   // A more robust solution would involve speaker detection for the selected segment.
   const [originalCharacterForShift, setOriginalCharacterForShift] = useState<string>("Narrator");
@@ -44,7 +44,7 @@ export const StoryInput: React.FC<StoryInputProps> = ({
       if (selectionStart !== selectionEnd) {
         const currentSelectedText = value.substring(selectionStart, selectionEnd);
         setSelectedText(currentSelectedText);
-        setSelectionRange({ start: selectionStart, end: selectionEnd });
+        // setSelectionRange({ start: selectionStart, end: selectionEnd }); // Unused state
 
         // Refined original character detection
         let foundCharacterName = "Narrator"; // Default
@@ -95,7 +95,7 @@ export const StoryInput: React.FC<StoryInputProps> = ({
 
       } else {
         setSelectedText('');
-        setSelectionRange(null);
+        // setSelectionRange(null); // Unused state
         setOriginalCharacterForShift("Narrator"); // Reset when no selection
       }
     }

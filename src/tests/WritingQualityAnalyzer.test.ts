@@ -37,7 +37,7 @@ describe('WritingQualityAnalyzer', () => {
 
   describe('analyzeVoiceConsistency', () => {
     beforeEach(() => {
-        (mockTextAnalysisEngine.parseText as any).mockImplementation(async (text: string): Promise<ContractResult<TextSegment[]>> => {
+        (mockTextAnalysisEngine.parseText as vi.Mock).mockImplementation(async (text: string): Promise<ContractResult<TextSegment[]>> => {
             if (!text) {
                 return { success: true, data: [] };
             }

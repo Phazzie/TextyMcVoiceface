@@ -12,15 +12,16 @@ import {
   IAIEnhancementService,
   IAppConfigService
 } from '../types/contracts';
-import {
-  ICacheManager,
-  IPerformanceMonitor,
-  IBackgroundProcessor
-} from '../../docs/performance-contracts';
+// Unused performance contract imports removed:
+// import {
+//   ICacheManager,
+//   IPerformanceMonitor,
+//   IBackgroundProcessor
+// } from '../../docs/performance-contracts';
 
 // Seam Manager for coordinating component communication
 export class SeamManager {
-  private static services: Map<string, any> = new Map();
+  private static services: Map<string, unknown> = new Map(); // Changed 'any' to 'unknown'
   private static instance: SeamManager;
   // Specific typed members for commonly accessed services for convenience and type safety.
   private textAnalysisEngine?: ITextAnalysisEngine;

@@ -26,8 +26,8 @@ interface DatabaseProject {
   name: string;
   description?: string;
   original_text: string;
-  settings: any;
-  metadata: any;
+  settings: unknown; // Was any
+  metadata: unknown; // Was any
   tags: string[];
   user_id?: string;
   created_at: string;
@@ -38,7 +38,7 @@ interface DatabaseCharacter {
   id: string;
   project_id: string;
   name: string;
-  voice_profile: any;
+  voice_profile: unknown; // Was any
   characteristics: string[];
   emotional_states: string[];
   frequency: number;
@@ -51,18 +51,18 @@ interface DatabaseAudioOutput {
   project_id: string;
   audio_url?: string;
   duration: number;
-  segments: any;
-  metadata: any;
+  segments: unknown; // Was any
+  metadata: unknown; // Was any
   created_at: string;
 }
 
 interface DatabaseWritingReport {
   id: string;
   project_id: string;
-  show_tell_issues: any;
-  trope_matches: any;
-  purple_prose_issues: any;
-  overall_score: any;
+  show_tell_issues: unknown; // Was any
+  trope_matches: unknown; // Was any
+  purple_prose_issues: unknown; // Was any
+  overall_score: unknown; // Was any
   created_at: string;
 }
 
@@ -528,7 +528,7 @@ export class SupabaseService {
     try {
       await this.waitForInitialization();
       
-      const { data, error } = await this.supabase
+      const { error } = await this.supabase // Removed 'data' from destructuring
         .from('projects')
         .select('count')
         .limit(1);

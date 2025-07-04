@@ -53,90 +53,90 @@ import {
 
 // Text Analysis Engine Stub
 export class TextAnalysisEngineStub implements ITextAnalysisEngine {
-  async parseText(text: string): Promise<ContractResult<TextSegment[]>> {
+  async parseText(_text: string): Promise<ContractResult<TextSegment[]>> {
     throw new NotImplementedError('TextAnalysisEngine', 'parseText');
   }
 
-  async identifyDialogue(text: string): Promise<ContractResult<DialogueMatch[]>> {
+  async identifyDialogue(_text: string): Promise<ContractResult<DialogueMatch[]>> {
     throw new NotImplementedError('TextAnalysisEngine', 'identifyDialogue');
   }
 
-  async extractAttributions(text: string): Promise<ContractResult<AttributionMatch[]>> {
+  async extractAttributions(_text: string): Promise<ContractResult<AttributionMatch[]>> {
     throw new NotImplementedError('TextAnalysisEngine', 'extractAttributions');
   }
 }
 
 // Character Detection System Stub
 export class CharacterDetectionSystemStub implements ICharacterDetectionSystem {
-  async detectCharacters(segments: TextSegment[]): Promise<ContractResult<Character[]>> {
+  async detectCharacters(_segments: TextSegment[]): Promise<ContractResult<Character[]>> {
     throw new NotImplementedError('CharacterDetectionSystem', 'detectCharacters');
   }
 
-  async identifySpeakers(text: string): Promise<ContractResult<string[]>> {
+  async identifySpeakers(_text: string): Promise<ContractResult<string[]>> {
     throw new NotImplementedError('CharacterDetectionSystem', 'identifySpeakers');
   }
 
-  async analyzeCharacterTraits(name: string, segments: TextSegment[]): Promise<ContractResult<Character>> {
+  async analyzeCharacterTraits(_name: string, _segments: TextSegment[]): Promise<ContractResult<Character>> {
     throw new NotImplementedError('CharacterDetectionSystem', 'analyzeCharacterTraits');
   }
 }
 
 // Voice Assignment Logic Stub
 export class VoiceAssignmentLogicStub implements IVoiceAssignmentLogic {
-  async assignVoices(characters: Character[]): Promise<ContractResult<VoiceAssignment[]>> {
+  async assignVoices(_characters: Character[]): Promise<ContractResult<VoiceAssignment[]>> {
     throw new NotImplementedError('VoiceAssignmentLogic', 'assignVoices');
   }
 
-  async generateVoiceProfile(character: Character): Promise<ContractResult<VoiceProfile>> {
+  async generateVoiceProfile(_character: Character): Promise<ContractResult<VoiceProfile>> {
     throw new NotImplementedError('VoiceAssignmentLogic', 'generateVoiceProfile');
   }
 
-  async validateAssignments(assignments: VoiceAssignment[]): Promise<ContractResult<boolean>> {
+  async validateAssignments(_assignments: VoiceAssignment[]): Promise<ContractResult<boolean>> {
     throw new NotImplementedError('VoiceAssignmentLogic', 'validateAssignments');
   }
 }
 
 // Audio Generation Pipeline Stub
 export class AudioGenerationPipelineStub implements IAudioGenerationPipeline {
-  async generateSegmentAudio(segment: TextSegment, voice: VoiceProfile): Promise<ContractResult<AudioSegment>> {
+  async generateSegmentAudio(_segment: TextSegment, _voice: VoiceProfile): Promise<ContractResult<AudioSegment>> {
     throw new NotImplementedError('AudioGenerationPipeline', 'generateSegmentAudio');
   }
 
-  async combineAudioSegments(segments: AudioSegment[]): Promise<ContractResult<AudioOutput>> {
+  async combineAudioSegments(_segments: AudioSegment[]): Promise<ContractResult<AudioOutput>> {
     throw new NotImplementedError('AudioGenerationPipeline', 'combineAudioSegments');
   }
 
-  async optimizeAudio(audioData: Blob): Promise<ContractResult<Blob>> {
+  async optimizeAudio(_audioData: Blob): Promise<ContractResult<Blob>> {
     throw new NotImplementedError('AudioGenerationPipeline', 'optimizeAudio');
   }
 }
 
 // OpenAI Audio Pipeline Stub - NEW for Narrator Mode
 export class OpenAIAudioPipelineStub implements IAudioGenerationPipeline {
-  async generateSegmentAudio(segment: TextSegment, voice: VoiceProfile): Promise<ContractResult<AudioSegment>> {
+  async generateSegmentAudio(_segment: TextSegment, _voice: VoiceProfile): Promise<ContractResult<AudioSegment>> {
     throw new NotImplementedError('OpenAIAudioPipeline', 'generateSegmentAudio');
   }
 
-  async combineAudioSegments(segments: AudioSegment[]): Promise<ContractResult<AudioOutput>> {
+  async combineAudioSegments(_segments: AudioSegment[]): Promise<ContractResult<AudioOutput>> {
     throw new NotImplementedError('OpenAIAudioPipeline', 'combineAudioSegments');
   }
 
-  async optimizeAudio(audioData: Blob): Promise<ContractResult<Blob>> {
+  async optimizeAudio(_audioData: Blob): Promise<ContractResult<Blob>> {
     throw new NotImplementedError('OpenAIAudioPipeline', 'optimizeAudio');
   }
 }
 
 // Voice Customizer Stub
 export class VoiceCustomizerStub implements IVoiceCustomizer {
-  async previewVoiceAdjustment(character: string, adjustments: VoiceAdjustments): Promise<ContractResult<VoicePreview>> {
+  async previewVoiceAdjustment(_character: string, _adjustments: VoiceAdjustments): Promise<ContractResult<VoicePreview>> {
     throw new NotImplementedError('VoiceCustomizer', 'previewVoiceAdjustment');
   }
 
-  async saveCustomVoice(character: string, profile: VoiceProfile): Promise<ContractResult<boolean>> {
+  async saveCustomVoice(_character: string, _profile: VoiceProfile): Promise<ContractResult<boolean>> {
     throw new NotImplementedError('VoiceCustomizer', 'saveCustomVoice');
   }
 
-  async resetToDefault(character: string): Promise<ContractResult<VoiceProfile>> {
+  async resetToDefault(_character: string): Promise<ContractResult<VoiceProfile>> {
     throw new NotImplementedError('VoiceCustomizer', 'resetToDefault');
   }
 
@@ -144,7 +144,7 @@ export class VoiceCustomizerStub implements IVoiceCustomizer {
     throw new NotImplementedError('VoiceCustomizer', 'exportVoiceSettings');
   }
 
-  async importVoiceSettings(settings: VoiceSettings): Promise<ContractResult<boolean>> {
+  async importVoiceSettings(_settings: VoiceSettings): Promise<ContractResult<boolean>> {
     throw new NotImplementedError('VoiceCustomizer', 'importVoiceSettings');
   }
 
@@ -152,11 +152,11 @@ export class VoiceCustomizerStub implements IVoiceCustomizer {
     throw new NotImplementedError('VoiceCustomizer', 'getCustomVoices');
   }
 
-  async applyAdjustments(baseProfile: VoiceProfile, adjustments: VoiceAdjustments): Promise<ContractResult<VoiceProfile>> {
+  async applyAdjustments(_baseProfile: VoiceProfile, _adjustments: VoiceAdjustments): Promise<ContractResult<VoiceProfile>> {
     throw new NotImplementedError('VoiceCustomizer', 'applyAdjustments');
   }
 
-  async validateAdjustments(adjustments: VoiceAdjustments): Promise<ContractResult<boolean>> {
+  async validateAdjustments(_adjustments: VoiceAdjustments): Promise<ContractResult<boolean>> {
     throw new NotImplementedError('VoiceCustomizer', 'validateAdjustments');
   }
 }

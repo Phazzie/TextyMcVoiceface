@@ -24,7 +24,7 @@ describe('AIEnhancementService', () => {
   beforeEach(() => {
     // Ensure a fresh SeamManager instance or clear services if needed, though SeamManager is static
     // For simplicity, we'll assume SeamManager.services can be cleared or we manage registration carefully
-    (SeamManager as any).services.clear(); // Clear previous registrations if any (use with caution)
+    (SeamManager as unknown as { services: Map<string, unknown> }).services.clear(); // Clear previous registrations (test hack)
 
     mockAppConfigService = new MockAppConfigService();
     SeamManager.getInstance().registerAppConfigService(mockAppConfigService as IAppConfigService);

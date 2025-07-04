@@ -71,7 +71,7 @@ export class TextAnalysisEngine implements ITextAnalysisEngine {
         // Add the match itself
         if (match.matchType === 'dialogue') {
           const dialogueMatch = match as DialogueMatch & { matchType: 'dialogue' };
-          const speaker = this.findSpeakerForDialogue(dialogueMatch, attributions, text);
+          const speaker = this.findSpeakerForDialogue(dialogueMatch, attributions); // Removed 'text'
           
           segments.push({
             id: `segment-${segmentId++}`,
@@ -183,7 +183,7 @@ export class TextAnalysisEngine implements ITextAnalysisEngine {
               verb: verb.toLowerCase(),
               speaker: speaker,
               position: position,
-              confidence: this.calculateAttributionConfidence(verb, speaker, text, position)
+              confidence: this.calculateAttributionConfidence(verb, speaker, text) // Removed 'position'
             });
           }
         }
@@ -232,7 +232,7 @@ export class TextAnalysisEngine implements ITextAnalysisEngine {
     return thoughts;
   }
 
-  private findSpeakerForDialogue(dialogue: DialogueMatch, attributions: AttributionMatch[], text: string): string | null {
+  private findSpeakerForDialogue(dialogue: DialogueMatch, attributions: AttributionMatch[]): string | null { // Removed 'text'
     // Find the closest attribution before or after the dialogue
     const beforeAttributions = attributions.filter(a => a.position < dialogue.startIndex);
     const afterAttributions = attributions.filter(a => a.position > dialogue.endIndex);
@@ -276,7 +276,7 @@ export class TextAnalysisEngine implements ITextAnalysisEngine {
     return null;
   }
 
-  private calculateAttributionConfidence(verb: string, speaker: string, text: string, position: number): number {
+  private calculateAttributionConfidence(verb: string, speaker: string, text: string): number { // Removed 'position'
     let confidence = 0.5; // Base confidence
     
     // Higher confidence for common speech verbs

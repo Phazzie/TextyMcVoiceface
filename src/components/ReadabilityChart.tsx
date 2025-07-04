@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react'; // Removed useEffect
 import { ReadabilityPoint } from '../types/contracts';
 
 interface ReadabilityChartProps {

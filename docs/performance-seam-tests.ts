@@ -6,16 +6,23 @@ import {
   IPerformanceMonitor, 
   IBackgroundProcessor,
   CacheType,
-  ProcessingJob,
-  PerformanceMetric,
-  MemoryStats
+  PerformanceMetric
 } from './performance-contracts';
 
 describe('Performance Optimization Seam Integration Tests', () => {
   let cacheManager: ICacheManager;
   let performanceMonitor: IPerformanceMonitor;
   let backgroundProcessor: IBackgroundProcessor;
-  let seamManager: any;
+
+  // Define an interface for the test seam manager
+  interface ITestSeamManager {
+    getCacheManager: () => ICacheManager;
+    getPerformanceMonitor: () => IPerformanceMonitor;
+    getBackgroundProcessor: () => IBackgroundProcessor;
+    getTextAnalysisEngine: () => unknown; // Using unknown for now
+    getAudioGenerationPipeline: () => unknown; // Using unknown for now
+  }
+  let seamManager: ITestSeamManager;
 
   beforeEach(async () => {
     // Initialize all performance seam components
@@ -473,7 +480,7 @@ describe('Performance Optimization Seam Integration Tests', () => {
     });
 
     test('Should integrate performance monitoring with audio generation', async () => {
-      const audioPipeline = seamManager.getAudioGenerationPipeline();
+      // const audioPipeline = seamManager.getAudioGenerationPipeline(); // Unused variable
       const testSegment = {
         id: 'test-segment',
         content: 'Hello world',
@@ -693,16 +700,9 @@ function getTestSeamManager() {
   };
 }
 
-// Helper function for generating test text
-function generateText(characterCount: number): string {
-  const baseText = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ';
-  const repetitions = Math.ceil(characterCount / baseText.length);
-  return baseText.repeat(repetitions).substring(0, characterCount);
-}
-
 // Custom Jest matchers for performance testing
 expect.extend({
-  toBeOneOf(received: any, array: any[]) {
+  toBeOneOf(received: unknown, array: unknown[]) {
     const pass = array.includes(received);
     if (pass) {
       return {
@@ -721,7 +721,7 @@ expect.extend({
 declare global {
   namespace jest {
     interface Matchers<R> {
-      toBeOneOf(array: any[]): R;
+      toBeOneOf(array: unknown[]): R;
     }
   }
 }

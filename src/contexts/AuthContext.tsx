@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
-import { supabaseService, SignInCredentials, SignUpCredentials } from '../services/implementations/SupabaseService'; // Adjust path as needed
+import { supabaseService, SignInCredentials, SignUpCredentials } from '../services/implementations/SupabaseService';
 import { ContractResult } from '../types/contracts';
 
 interface AuthContextType {
@@ -11,7 +11,6 @@ interface AuthContextType {
   signIn: (credentials: SignInCredentials) => Promise<ContractResult<User>>;
   signUp: (credentials: SignUpCredentials) => Promise<ContractResult<User>>;
   signOut: () => Promise<ContractResult<boolean>>;
-  // add other auth-related states or functions if needed, e.g., sendPasswordResetEmail
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,50 +22,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Wait for SupabaseService to be initialized before checking session or subscribing
-    supabaseService.waitForInitialization().then(() => {
-      // Initial check for user and session
+    let isEffectMounted = true; // Renamed to avoid confusion
+
+    const initializeAuth = async () => {
+      await supabaseService.waitForInitialization();
+      if (!isEffectMounted) return;
+
       const initialUser = supabaseService.getCurrentUser();
       const initialSession = supabaseService.getUserSession();
 
-      setUser(initialUser);
-      setSession(initialSession);
-      setIsLoading(false); // Initial load done
+      if (isEffectMounted) {
+        setUser(initialUser);
+        setSession(initialSession);
+        setIsLoading(false);
+      }
 
-      // Subscribe to auth state changes
       const unsubscribe = supabaseService.subscribeToAuthStateChange(
         (event: AuthChangeEvent, currentSession: Session | null) => {
-          // console.log('AuthContext: AuthChangeEvent', event, currentSession);
+          if (!isEffectMounted) return;
+
           setUser(currentSession?.user ?? null);
           setSession(currentSession);
-          setError(null); // Clear previous errors on auth change
+          setError(null);
 
-          // Handle specific events if needed
           switch (event) {
             case 'SIGNED_IN':
-              // Handled by setting user/session
+            case 'USER_UPDATED':
+            case 'TOKEN_REFRESHED':
               break;
             case 'SIGNED_OUT':
-              // Handled by setting user/session to null
-              break;
-            case 'USER_UPDATED':
-              // User profile might have changed
-              setUser(currentSession?.user ?? null);
               break;
             case 'PASSWORD_RECOVERY':
-              // Might want to set a specific state for this
-              break;
-            case 'TOKEN_REFRESHED':
-              // Session was refreshed
               break;
             case 'INITIALIZED':
-              // This event is now also handled by the initial check above.
-              // Could be useful if initial check happens before subscription is fully set.
-              if (!user && currentSession?.user){ // if user is not set from initial check
+              if (isEffectMounted && !user && currentSession?.user) {
                 setUser(currentSession.user);
                 setSession(currentSession);
               }
-              setIsLoading(false); // Ensure loading is false after init
+              if (isEffectMounted) setIsLoading(false);
               break;
             default:
               break;
@@ -75,32 +68,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       );
 
       return () => {
+        isEffectMounted = false;
         unsubscribe();
       };
-    });
-  }, []); // Empty dependency array ensures this runs once on mount
+    };
 
-  const handleAuthOperation = async <T>(
-    operation: () => Promise<ContractResult<T>>,
-    successCallback?: (data: T) => void
-  ): Promise<ContractResult<T>> => {
+    initializeAuth();
+
+    return () => {
+      isEffectMounted = false;
+    };
+  }, [user]);
+
+  const handleAuthOperation = async <TData>(
+    operation: () => Promise<ContractResult<TData>>
+  ): Promise<ContractResult<TData>> => {
     setIsLoading(true);
     setError(null);
     try {
       const result = await operation();
-      if (result.success && result.data) {
-        // User and session state will be updated by the onAuthStateChange listener
-        if (successCallback) successCallback(result.data);
-      } else if (result.error) {
-        setError(result.error);
+      if (!result.success && result.error) {
+        setError(result.error); // If operation causes error, set it
       }
       setIsLoading(false);
       return result;
-    } catch (e: any) {
-      const errorMessage = e.message || 'An unexpected error occurred.';
+    } catch (e: unknown) {
+      let errorMessage = 'An unexpected error occurred.';
+      if (e instanceof Error) {
+        errorMessage = e.message;
+      } else if (typeof e === 'string') {
+        errorMessage = e;
+      }
       setError(errorMessage);
       setIsLoading(false);
-      return { success: false, error: errorMessage };
+      return { success: false, error: errorMessage, data: null };
     }
   };
 
@@ -109,17 +110,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signUp = async (credentials: SignUpCredentials): Promise<ContractResult<User>> => {
-    // After sign-up, Supabase typically sends a confirmation email.
-    // The user state might not immediately change to signed-in until confirmation.
-    // The onAuthStateChange listener will handle the actual user state updates.
     return handleAuthOperation(() => supabaseService.signUp(credentials));
   };
 
   const signOut = async (): Promise<ContractResult<boolean>> => {
     return handleAuthOperation(() => supabaseService.signOut());
   };
-
-  // Add other methods like sendPasswordResetEmail, updateUser, etc. as needed
 
   return (
     <AuthContext.Provider value={{ user, session, isLoading, error, signIn, signUp, signOut }}>
